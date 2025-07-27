@@ -38,6 +38,7 @@ class MetricsEngine(BaseModel):
     """Metrics Engine."""
 
     rolling_window: int = 20
+    save_metrics: bool = True
 
     def compute(
         self,
@@ -96,15 +97,6 @@ class MetricsEngine(BaseModel):
         # Trade Metrics
         num_trades = win_rate = average_pnl = None
         if trades:
-            for trade in trades:
-                if trade.close_date:
-                    close_price = market_snapshot.get(
-                        symbol=trade.symbol, variable="close", dates=trade.close_date
-                    )[0]
-                    open_price = market_snapshot.get(
-                        symbol=trade.symbol, variable="close", dates=trade.open_date
-                    )[0]
-                    trade.pnl = (close_price - open_price) * trade.quantity
             pnl_list = [t.pnl for t in trades if t.pnl is not None]
             num_trades = len(pnl_list)
             wins = [p for p in pnl_list if p > 0]
