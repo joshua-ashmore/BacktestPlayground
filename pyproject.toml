@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "BacktestPlayground"
+name = "backtest"
 version = "0.1.0"
 description = ""
 authors = ["joshua-ashmore <114852555+joshua-ashmore@users.noreply.github.com>"]
