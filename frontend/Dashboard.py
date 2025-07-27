@@ -47,13 +47,13 @@ generate_config(config=config)
 
 # --- Layout ---
 generate_layout(selected_summary=selected_summary)
+
 # --- Time series plot ---
 st.markdown("---")
 
 ts_df = get_timeseries_df(selected_summary_id)
 generate_charts(ts_df)
 
-# Optional: show raw data tables if user wants
 if st.checkbox("Show Raw Summary Data"):
     st.dataframe(summary_df)
 

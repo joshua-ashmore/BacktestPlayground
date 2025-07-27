@@ -13,7 +13,7 @@ from engine.orchestrator import Orchestrator, OrchestratorConfig
 from frontend.db_utils import metrics_to_dataframe, orchestrator_config_to_df_simple
 from frontend.st_utils import display_trade_table, generate_charts, generate_layout
 
-st.title("🛠️ Run Custom Strategy")
+st.title("Run Custom Strategy")
 
 # --- 1. User Input ---
 strategy_name = st.text_input("Strategy Name", value="Custom Momentum")
@@ -137,7 +137,7 @@ with st.container():
         )
         stop_loss_pct /= 100
 
-run_btn = st.button("🚀 Run Strategy")
+run_btn = st.button("Run Strategy")
 
 # --- 2. Run the Strategy ---
 if run_btn:
