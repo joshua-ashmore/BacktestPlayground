@@ -10,7 +10,6 @@ from components.reporter.base_model import PDFReporter
 from components.strategies.momentum_strategy import MomentumStrategyJob
 from engine.orchestrator import Orchestrator, OrchestratorConfig
 
-
 last_date = date(2025, 7, 22)
 orchestrator_config = OrchestratorConfig(
     market_feed=HistoricalFeed(

@@ -1,7 +1,9 @@
 """Strategy Models."""
 
-from pydantic import BaseModel
 from typing import List, Optional
+
+from pydantic import BaseModel
+
 from backtester.market_data.base import Instrument
 from backtester.market_data.market import Symbol
 from backtester.static_data import Directions

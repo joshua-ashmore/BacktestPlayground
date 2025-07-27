@@ -2,7 +2,6 @@
 
 import datetime
 
-
 MOMENTUM_CONFIG = {
     "job": {
         "strategy_name": "Test Momentum",

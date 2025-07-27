@@ -1,8 +1,9 @@
 """Typed Pydantic Rows."""
 
-from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel
 
 
 class PriceRecord(BaseModel):

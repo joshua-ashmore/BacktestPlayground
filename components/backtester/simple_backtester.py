@@ -6,6 +6,7 @@ from enum import Enum
 from typing import List, Literal
 
 from pydantic import model_validator
+
 from backtester.market_data.market import MarketSnapshot
 from components.backtester.base_model import BacktesterBaseModel, PortfolioSnapshot
 from components.trades.intent_model import TradeIntent

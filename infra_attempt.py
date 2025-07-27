@@ -3,6 +3,7 @@
 from datetime import date, timedelta
 from enum import Enum
 from typing import Annotated, Any, Literal, Optional, Union
+
 import pandas as pd
 from pydantic import BaseModel, Field, ValidationError, model_validator
 

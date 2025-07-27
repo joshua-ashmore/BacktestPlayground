@@ -5,6 +5,7 @@ from typing import Dict, List, Literal, OrderedDict
 
 import numpy as np
 import pandas as pd
+
 from backtester.market_data.market import MarketSnapshot
 from components.job.base_model import StrategyJob
 from components.strategies.base_model import Strategy

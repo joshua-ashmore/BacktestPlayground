@@ -1,9 +1,11 @@
 """Trade Models."""
 
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
-from backtester.static_data import Signals, Directions, Events
+
+from backtester.static_data import Directions, Events, Signals
 
 
 class TradeSignal(BaseModel):

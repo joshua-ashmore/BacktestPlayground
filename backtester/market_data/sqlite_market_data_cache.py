@@ -1,6 +1,7 @@
 """SQLite Market Data Cache."""
 
 import sqlite3
+
 import pandas as pd
 
 

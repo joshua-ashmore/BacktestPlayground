@@ -1,15 +1,11 @@
 """Orchestrator."""
 
-from typing import (
-    Callable,
-    List,
-)
+from typing import Callable, List
+
 import pandas as pd
 from pydantic import BaseModel
 
-from backtester.market_data.market_data_feed import (
-    MarketFeed,
-)
+from backtester.market_data.market_data_feed import MarketFeed
 from components.backtester.all_backtesters import Backtesters
 from components.job.base_model import StrategyJob
 from components.metrics.base_model import MetricsEngine

@@ -1,8 +1,9 @@
 """Shared Market Data Models."""
 
-from pydantic import BaseModel, model_validator
 import datetime
 from typing import Annotated
+
+from pydantic import BaseModel, model_validator
 
 Symbol = Annotated[str, "Any supported symbol."]
 

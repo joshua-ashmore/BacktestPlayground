@@ -1,14 +1,16 @@
 """Market Data Feed Models."""
 
 import datetime
-from pydantic import BaseModel, Field, model_validator
-from typing import Annotated, Optional, Union, Literal, List
-import yfinance as yf
-import pandas as pd
+from typing import Annotated, List, Literal, Optional, Union
+
 import numpy as np
+import pandas as pd
+import yfinance as yf
+from pydantic import BaseModel, Field, model_validator
+
+from backtester.market_data.market import MarketSnapshot
 from backtester.market_data.sqlite_market_data_cache import SQLiteMarketCache
 from backtester.static_data import DataSources, Symbol
-from backtester.market_data.market import MarketSnapshot
 
 
 class DataInputs(BaseModel):

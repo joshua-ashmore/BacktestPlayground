@@ -3,6 +3,7 @@
 from collections import defaultdict
 from datetime import date
 from typing import List, Optional
+
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel

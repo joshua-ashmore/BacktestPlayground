@@ -1,18 +1,18 @@
 """Database."""
 
 import sqlite3
-from typing import List, Optional
-from pathlib import Path
 from contextlib import contextmanager
 from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import List, Optional
+
 from backend.models.records import (
-    PriceRecord,
-    StrategyRun,
-    StrategyMetrics,
     DailyReturn,
+    PriceRecord,
+    StrategyMetrics,
+    StrategyRun,
 )
 from components.trades.trade_model import Trade
-
 
 DB_PATH = Path("data/backtests.db")
 

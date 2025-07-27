@@ -1,7 +1,7 @@
 """Init."""
 
-import datetime
-from typing import List, Dict
+from datetime import datetime
+from typing import Dict, List
 
 from backtester.static_data import Directions
 from backtester.strategy.strategies.statistical_arbitrage import (
@@ -33,7 +33,7 @@ class Trade:
 
     def close(
         self,
-        exit_date: datetime.datetime,
+        exit_date: datetime,
         ticker_one_price: float,
         ticker_two_price: float,
     ):
@@ -183,9 +183,6 @@ class Trade:
 #         "losing_trades": losing_trades,
 #         "average_trade_pnl": average_trade_pnl,
 #     }
-
-
-from datetime import datetime, timedelta
 
 
 def execute_trades(

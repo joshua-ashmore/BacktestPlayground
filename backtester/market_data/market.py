@@ -1,11 +1,13 @@
 """Market Model."""
 
+import datetime
 from enum import Enum
 from typing import Dict, List, Optional
+
+from pydantic import BaseModel
+
 from backtester.market_data.base import BarData
 from backtester.static_data import Symbol
-import datetime
-from pydantic import BaseModel
 
 
 class MarketVariable(str, Enum):

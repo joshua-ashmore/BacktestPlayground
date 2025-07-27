@@ -1,23 +1,20 @@
 """Statistical Arbitrage Strategy."""
 
 import datetime
+from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
-
-from pydantic import BaseModel
-from backtester.market_data.market import MarketSnapshot
-from backtester.static_data import Directions, Symbol
-from backtester.strategy.strategy import AbstractStrategyConfig
-
-from scipy.stats import pearsonr
-
-from statsmodels.regression.linear_model import OLS
-from statsmodels.tsa.stattools import adfuller
+from typing import Any, List, Literal, Tuple
 
 import numpy as np
 import pandas as pd
+from pydantic import BaseModel
+from scipy.stats import pearsonr
+from statsmodels.regression.linear_model import OLS
+from statsmodels.tsa.stattools import adfuller
 
-from concurrent.futures import ThreadPoolExecutor
-from typing import Any, List, Literal, Tuple
+from backtester.market_data.market import MarketSnapshot
+from backtester.static_data import Directions, Symbol
+from backtester.strategy.strategy import AbstractStrategyConfig
 
 
 class StatisticalArbitrageParameter(BaseModel):
@@ -125,8 +122,8 @@ class StatisticalArbitrageStrategy(AbstractStrategyConfig):
         Returns:
             alpha: Speed of error correction (should be negative and significant)
         """
-        import statsmodels.api as sm
         import pandas as pd
+        import statsmodels.api as sm
 
         df = pd.DataFrame({"y": y, "x": x, "resid": resid})
 
@@ -519,7 +516,7 @@ class StatisticalArbitrageStrategy(AbstractStrategyConfig):
                 np.abs(historical_zscores), close_percentile
             )
 
-            direction = 1 if parameter.signal == Directions.BUY else -1
+            # direction = 1 if parameter.signal == Directions.BUY else -1
             exit_price_one = market_snapshot.get(
                 parameter.symbol_one, variable="close", dates=signal_date
             )[0]
@@ -536,18 +533,18 @@ class StatisticalArbitrageStrategy(AbstractStrategyConfig):
             #     (ticker_one_current_price - ticker_one_entry_price)
             #     - (ticker_two_current_price - ticker_two_entry_price) * parameter.beta
             # )
-            notional = 100
-            pnl = 0
-            if parameter.signal == Directions.SELL:
-                pnl = notional * (
-                    (exit_price_two - entry_price_two) * beta
-                    - (exit_price_one - entry_price_one)
-                )
-            elif parameter.signal == Directions.BUY:
-                pnl = notional * (
-                    (entry_price_two - exit_price_two) * beta
-                    - (entry_price_one - exit_price_one)
-                )
+            # notional = 100
+            # pnl = 0
+            # if parameter.signal == Directions.SELL:
+            #     pnl = notional * (
+            #         (exit_price_two - entry_price_two) * beta
+            #         - (exit_price_one - entry_price_one)
+            #     )
+            # elif parameter.signal == Directions.BUY:
+            #     pnl = notional * (
+            #         (entry_price_two - exit_price_two) * beta
+            #         - (entry_price_one - exit_price_one)
+            #     )
 
             if parameter.position_entered != signal_date and (
                 abs(z_score) <= dynamic_close_threshold

@@ -1,33 +1,32 @@
 """Reporter Base Model."""
 
-from datetime import datetime
 import io
 import os
+from datetime import datetime
 from typing import Any, Optional
+
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-import pandas as pd
+from matplotlib.patches import Rectangle
 from pydantic import BaseModel
-
-from backtester.market_data.market import MarketSnapshot
-from components.job.base_model import StrategyJob
-
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
 from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
     Image,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
     Table,
     TableStyle,
 )
-from reportlab.lib import colors
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from matplotlib.patches import Rectangle
 
+from backtester.market_data.market import MarketSnapshot
+from components.job.base_model import StrategyJob
 from components.metrics.base_model import PortfolioMetrics
 from components.trades.trade_model import Trade
 
