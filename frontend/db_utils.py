@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+
 import pandas as pd
 
 from components.metrics.base_model import PortfolioMetrics

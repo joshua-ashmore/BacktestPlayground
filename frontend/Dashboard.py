@@ -1,7 +1,8 @@
 """Streamlit File."""
 
-import streamlit as st
 from datetime import datetime
+
+import streamlit as st
 
 from engine.orchestrator import OrchestratorConfig
 from frontend.db_utils import (
@@ -10,7 +11,6 @@ from frontend.db_utils import (
     load_latest_strategy_config,
 )
 from frontend.st_utils import generate_charts, generate_config, generate_layout
-
 
 # --- Streamlit UI ---
 st.set_page_config(layout="wide", page_title="Portfolio Dashboard")

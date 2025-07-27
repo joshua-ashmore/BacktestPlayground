@@ -1,17 +1,16 @@
 """Run Custom Strategy."""
 
-import streamlit as st
 from datetime import date, timedelta
+
+import streamlit as st
+
 from backtester.market_data.market_data_feed import DataInputs, HistoricalFeed
 from components.backtester.simple_backtester import SimpleBacktester
 from components.job.base_model import StrategyJob
 from components.metrics.base_model import MetricsEngine
 from components.strategies.momentum_strategy import MomentumStrategyJob
 from engine.orchestrator import Orchestrator, OrchestratorConfig
-from frontend.db_utils import (
-    metrics_to_dataframe,
-    orchestrator_config_to_df_simple,
-)
+from frontend.db_utils import metrics_to_dataframe, orchestrator_config_to_df_simple
 from frontend.st_utils import display_trade_table, generate_charts, generate_layout
 
 st.title("🛠️ Run Custom Strategy")
