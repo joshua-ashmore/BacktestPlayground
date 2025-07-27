@@ -517,18 +517,18 @@ class StatisticalArbitrageStrategy(AbstractStrategyConfig):
             )
 
             # direction = 1 if parameter.signal == Directions.BUY else -1
-            exit_price_one = market_snapshot.get(
-                parameter.symbol_one, variable="close", dates=signal_date
-            )[0]
-            exit_price_two = market_snapshot.get(
-                parameter.symbol_two, variable="close", dates=signal_date
-            )[0]
-            entry_price_one = market_snapshot.get(
-                parameter.symbol_one, variable="close", dates=parameter.position_entered
-            )[0]
-            entry_price_two = market_snapshot.get(
-                parameter.symbol_two, variable="close", dates=parameter.position_entered
-            )[0]
+            # exit_price_one = market_snapshot.get(
+            #     parameter.symbol_one, variable="close", dates=signal_date
+            # )[0]
+            # exit_price_two = market_snapshot.get(
+            #     parameter.symbol_two, variable="close", dates=signal_date
+            # )[0]
+            # entry_price_one = market_snapshot.get(
+            #     parameter.symbol_one, variable="close", dates=parameter.position_entered
+            # )[0]
+            # entry_price_two = market_snapshot.get(
+            #     parameter.symbol_two, variable="close", dates=parameter.position_entered
+            # )[0]
             # pnl = direction * (
             #     (ticker_one_current_price - ticker_one_entry_price)
             #     - (ticker_two_current_price - ticker_two_entry_price) * parameter.beta
