@@ -13,14 +13,14 @@ from engine.orchestrator import OrchestratorConfig
 def generate_config(config: OrchestratorConfig):
     """Generate Strategy Config."""
 
-    st.subheader("📋 Strategy Configuration")
+    st.subheader("Strategy Configuration")
 
-    with st.expander("💼 Job Details"):
+    with st.expander("Job Details"):
         st.write(f"**Strategy Name**: {config.job.strategy_name}")
         st.write(f"**Date**: {config.job.current_date}")
         st.write(f"**Tickers**: {', '.join(config.job.tickers)}")
 
-    with st.expander("🧪 Backtester Settings"):
+    with st.expander("Backtester Settings"):
         st.write(f"**Initial Cash**: ${config.backtester.initial_cash:,}")
         st.write(f"**Max Hold Days**: {config.backtester.max_hold_days}")
         st.write(
@@ -29,7 +29,7 @@ def generate_config(config: OrchestratorConfig):
         st.write(f"**Stop Loss**: {config.backtester.stop_loss_pct * 100:.1f}%")
         st.write(f"**Take Profit**: {config.backtester.take_profit_pct * 100:.1f}%")
 
-    with st.expander("📈 Market Feed"):
+    with st.expander("Market Feed"):
         st.write(f"**Source**: {config.market_feed.source.value}")
         st.write(f"**Start Date**: {config.market_feed.data_inputs.start_date}")
         st.write(f"**End Date**: {config.market_feed.data_inputs.end_date}")

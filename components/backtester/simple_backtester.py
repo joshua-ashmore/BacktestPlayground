@@ -182,7 +182,6 @@ class SimpleBacktester(BacktesterBaseModel):
             # 2. Close trades closed today (optional if you're modeling closing)
             trades_closed_today = [t for t in trades if t.close_date == dt]
             for trade in trades_closed_today:
-                # You could adjust cash and positions if needed
                 cash += trade.quantity * market_snapshot.get(
                     symbol=trade.symbol,
                     variable="close",
