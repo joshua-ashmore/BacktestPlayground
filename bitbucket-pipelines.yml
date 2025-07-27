@@ -1,0 +1,25 @@
+definitions:
+  caches:
+    poetry:
+      key:
+        files:
+          - poetry.lock
+      path: .venv
+    precommit:
+      key:
+        files:
+          - .pre-commit-config.yaml
+      path: ~/.cache/pre-commit
+
+pipelines:
+  pull-requests:
+    "{feature/*,hotfix/*,bugfix/*}":
+      - step:
+        name: Test
+        caches:
+          - poetry
+          - precommit
+        script:
+          - poetry install --all-extras
+          - poetry run pre-commit run --from-ref origin/main --to-ref HEAD
+          - poetry run pytest
