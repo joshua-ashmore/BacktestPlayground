@@ -1,8 +1,13 @@
 """SQLite Market Data Cache."""
 
+import json
 import sqlite3
 
 import pandas as pd
+
+from components.metrics.base_model import PortfolioMetrics
+
+# from engine.orchestrator import OrchestratorConfig
 
 
 class SQLiteMarketCache:
@@ -123,3 +128,163 @@ class SQLiteMarketCache:
         return cached_start <= pd.to_datetime(start_date) and cached_end + pd.Timedelta(
             hours=23, minutes=59, seconds=59
         ) >= pd.to_datetime(end_date)
+
+
+class SQLiteMetricsStore:
+    def __init__(self, db_path: str = "portfolio_metrics.db"):
+        self.db_path = db_path
+        self._init_db()
+
+    def _init_db(self):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS portfolio_summary (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    strategy_name TEXT NOT NULL,
+                    start_date DATE NOT NULL,
+                    end_date DATE NOT NULL,
+                    cumulative_return REAL,
+                    annualized_return REAL,
+                    annualized_volatility REAL,
+                    sharpe_ratio REAL,
+                    information_ratio REAL,
+                    max_drawdown REAL,
+                    num_trades INTEGER,
+                    win_rate REAL,
+                    average_pnl REAL,
+                    turnover REAL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS portfolio_timeseries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    summary_id INTEGER NOT NULL,
+                    date DATE NOT NULL,
+                    equity_curve REAL,
+                    daily_return REAL,
+                    rolling_sharpe REAL,
+                    rolling_drawdown REAL,
+                    FOREIGN KEY (summary_id) REFERENCES portfolio_summary(id)
+                )
+            """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS strategy_config (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    strategy_name TEXT NOT NULL,
+                    config_json TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+    def save_strategy_config(self, strategy_name: str, config):
+        config_json = json.dumps(config.model_dump(), default=str, indent=2)
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO strategy_config (strategy_name, config_json)
+                VALUES (?, ?)
+                """,
+                (strategy_name, config_json),
+            )
+
+    def load_latest_strategy_config(self, strategy_name: str) -> dict | None:
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                """
+                SELECT config_json FROM strategy_config
+                WHERE strategy_name = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (strategy_name,),
+            ).fetchone()
+
+            if row:
+                return json.loads(row[0])
+            return None
+
+    def save_portfolio_metrics(self, metrics: PortfolioMetrics, strategy_name: str):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        # Insert summary
+        c.execute(
+            """
+            INSERT INTO portfolio_summary (
+                strategy_name, start_date, end_date, cumulative_return, annualized_return,
+                annualized_volatility, sharpe_ratio, information_ratio,
+                max_drawdown, num_trades, win_rate, average_pnl, turnover
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                strategy_name,
+                metrics.start_date,
+                metrics.end_date,
+                metrics.cumulative_return,
+                metrics.annualized_return,
+                metrics.annualized_volatility,
+                metrics.sharpe_ratio,
+                metrics.information_ratio,
+                metrics.max_drawdown,
+                metrics.num_trades,
+                metrics.win_rate,
+                metrics.average_pnl,
+                metrics.turnover,
+            ),
+        )
+        summary_id = c.lastrowid
+
+        # Insert timeseries
+        for d in metrics.daily_returns:
+            c.execute(
+                """
+                INSERT INTO portfolio_timeseries (
+                    summary_id, date, equity_curve, daily_return,
+                    rolling_sharpe, rolling_drawdown
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    summary_id,
+                    d,
+                    metrics.equity_curve.get(d),
+                    metrics.daily_returns.get(d),
+                    metrics.rolling_sharpe.get(d),
+                    metrics.rolling_drawdown.get(d),
+                ),
+            )
+
+        conn.commit()
+        conn.close()
+        return summary_id  # useful for downstream dashboards
+
+    def load_timeseries(self, summary_id: int) -> pd.DataFrame:
+        conn = sqlite3.connect(self.db_path)
+        df = pd.read_sql_query(
+            """
+            SELECT date, equity_curve, daily_return, rolling_sharpe, rolling_drawdown
+            FROM portfolio_timeseries
+            WHERE summary_id = ?
+            ORDER BY date ASC
+            """,
+            conn,
+            params=(summary_id,),
+            parse_dates=["date"],
+        )
+        conn.close()
+        return df
+
+    def load_summary(self) -> pd.DataFrame:
+        conn = sqlite3.connect(self.db_path)
+        df = pd.read_sql_query(
+            "SELECT * FROM portfolio_summary ORDER BY created_at DESC", conn
+        )
+        conn.close()
+        return df

@@ -1,14 +1,15 @@
 """Orchestrator."""
 
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 import pandas as pd
 from pydantic import BaseModel
 
 from backtester.market_data.market_data_feed import MarketFeed
+from backtester.market_data.sqlite_market_data_cache import SQLiteMetricsStore
 from components.backtester.all_backtesters import Backtesters
 from components.job.base_model import StrategyJob
-from components.metrics.base_model import MetricsEngine
+from components.metrics.base_model import MetricsEngine, PortfolioMetrics
 from components.reporter.base_model import PDFReporter
 from components.strategies.all_strategies import Strategies
 
@@ -34,7 +35,7 @@ class OrchestratorConfig(BaseModel):
     strategy: Strategies
     backtester: Backtesters
     metrics_engine: MetricsEngine
-    reporter: PDFReporter
+    reporter: Optional[PDFReporter] = None
     hooks: List[Hook] = []
 
 
@@ -52,8 +53,9 @@ class Orchestrator(BaseModel):
         for hook in self.config.hooks:
             hook.after(stage=stage, job=job)
 
-    def run(self):
+    def run(self) -> PortfolioMetrics | None:
         """Run strategy."""
+        self._run_phase(fn=self._pre_save, stage="pre_save", job=self.config.job)
         self._run_phase(fn=self._load_data, stage="load_data", job=self.config.job)
         self._run_phase(
             fn=self._generate_signals, stage="generate_signals", job=self.config.job
@@ -63,8 +65,16 @@ class Orchestrator(BaseModel):
         )
         self._run_phase(fn=self._run_backtest, stage="backtest", job=self.config.job)
         self._run_phase(fn=self._compute_metrics, stage="metrics", job=self.config.job)
-        # self._run_phase(fn=self._save_results, stage="save", job=self.config.job)
+        self._run_phase(fn=self._save_results, stage="save", job=self.config.job)
         self._run_phase(fn=self._report, stage="report", job=self.config.job)
+
+    def _pre_save(self, job: StrategyJob):
+        """Pre-save data."""
+        metrics_store = SQLiteMetricsStore()
+        if self.config:
+            metrics_store.save_strategy_config(
+                strategy_name=job.strategy_name, config=self.config
+            )
 
     def _load_data(self, job: StrategyJob):
         """Load data."""
@@ -103,20 +113,19 @@ class Orchestrator(BaseModel):
             trades=job.equity_curve,
         )
 
-    def _save_results(self, job: StrategyJob):
+    def _save_results(self, job: StrategyJob) -> PortfolioMetrics | None:
         """Save results."""
-        if job.signals is not None:
-            self.config.db.save("signals", job.signals, job)
-        if job.equity_curve is not None:
-            self.config.db.save("equity_curve", job.equity_curve, job)
-        if job.metrics is not None:
-            metrics_df = pd.DataFrame([job.metrics])
-            self.config.db.save("metrics", metrics_df, job)
+        metrics_store = SQLiteMetricsStore()
+        if job.metrics is not None and self.config.metrics_engine.save_metrics:
+            metrics_store.save_portfolio_metrics(
+                metrics=job.metrics, strategy_name=job.strategy_name
+            )
 
     def _report(self, job: StrategyJob):
         """Generate report."""
-        self.config.reporter.report(
-            job=job,
-            market_snapshot=self.config.market_feed.market_snapshot,
-            metrics=job.metrics,
-        )
+        if self.config.reporter:
+            self.config.reporter.report(
+                job=job,
+                market_snapshot=self.config.market_feed.market_snapshot,
+                metrics=job.metrics,
+            )

@@ -14,6 +14,7 @@ class Trade(BaseModel):
     close_date: Optional[date] = None
     quantity: float
     price: float
+    close_price: Optional[float] = None
     notional: float
     strategy: str
     side: Literal["buy", "sell"]

@@ -16,6 +16,8 @@ seaborn = "^0.13.2"
 scikit-learn = "^1.7.0"
 ipykernel = "^6.29.5"
 reportlab = "^4.4.3"
+altair = "^5.5.0"
+streamlit = "^1.47.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"

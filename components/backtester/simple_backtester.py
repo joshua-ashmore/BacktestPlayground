@@ -56,77 +56,6 @@ class SimpleBacktester(BacktesterBaseModel):
         trades: list[Trade] = []
         open_positions: dict[str, Trade] = {}
 
-        # for intent in intents:
-        # price_data = market_snapshot.get(
-        #     symbol=intent.symbol,
-        #     variable="close",
-        #     dates=intent.date,
-        #     with_timestamps=True,
-        # )
-
-        # price = price_data.get(intent.date)
-        # if price is None or intent.signal == Signal.HOLD:
-        #     continue
-
-        # symbol = intent.symbol
-        # existing_trade = open_positions.get(symbol)
-
-        # # CASE 1: No open trade — open one
-        # if not existing_trade:
-        #     if intent.signal != Signal.HOLD:
-        #         notional = intent.weight * self.cash * self.allocation_pct_per_trade
-        #         quantity = notional / price
-
-        #         trade = Trade(
-        #             symbol=symbol,
-        #             open_date=intent.date,
-        #             quantity=quantity,
-        #             price=price,
-        #             notional=quantity * price,
-        #             strategy=intent.strategy,
-        #             side=intent.signal,
-        #         )
-        #         trades.append(trade)
-        #         open_positions[symbol] = trade
-
-        #         self.cash -= notional
-
-        # # CASE 2: Trade is open — check if we should close
-        # else:
-        #     trade_age = (intent.date - existing_trade.open_date).days
-        #     entry_price = market_snapshot.get(
-        #         symbol=intent.symbol,
-        #         variable="close",
-        #         dates=existing_trade.open_date,
-        #         with_timestamps=False,
-        #     )[0]
-        #     side = existing_trade.side
-
-        #     if side == "buy":
-        #         trade_pnl = (price - entry_price) * existing_trade.quantity
-        #         pct_change = (price / entry_price) - 1
-        #     else:
-        #         trade_pnl = (entry_price - price) * existing_trade.quantity
-        #         pct_change = (entry_price / price) - 1
-
-        #     stop_hit = False
-        #     if side == "buy" and pct_change <= self.stop_pct:
-        #         stop_hit = True
-        #     elif side == "sell" and pct_change <= self.stop_pct:
-        #         stop_hit = True
-
-        #     if (
-        #         Signal(intent.signal).is_opposite(Signal(existing_trade.side))
-        #         or trade_age >= self.max_hold_days
-        #         or stop_hit
-        #     ):
-        #         existing_trade.close_date = intent.date
-        #         existing_trade.pnl = trade_pnl
-        #         del open_positions[symbol]
-
-        #         self.cash += price * existing_trade.quantity
-
-        # For each date, do:
         for _date in dates:
             # 1) Process intents on this date to open or close trades by signal
             intents_on_date = [i for i in intents if i.date == _date]
@@ -172,24 +101,23 @@ class SimpleBacktester(BacktesterBaseModel):
                 # CASE 2: Trade is open — check if we should close
                 else:
                     trade_age = (intent.date - existing_trade.open_date).days
-                    entry_price = market_snapshot.get(
-                        symbol=intent.symbol,
-                        variable="close",
-                        dates=existing_trade.open_date,
-                        with_timestamps=False,
-                    )[0]
                     side = existing_trade.side
 
                     if side == "buy":
-                        trade_pnl = (price - entry_price) * existing_trade.quantity
+                        trade_pnl = (
+                            price - existing_trade.price
+                        ) * existing_trade.quantity
                     else:
-                        trade_pnl = (entry_price - price) * existing_trade.quantity
+                        trade_pnl = (
+                            existing_trade.price - price
+                        ) * existing_trade.quantity
 
                     if (
                         Signal(intent.signal).is_opposite(Signal(existing_trade.side))
                         or trade_age >= self.max_hold_days
                     ):
                         existing_trade.close_date = intent.date
+                        existing_trade.close_price = price
                         existing_trade.pnl = trade_pnl
                         del open_positions[symbol]
 
@@ -206,21 +134,14 @@ class SimpleBacktester(BacktesterBaseModel):
                     continue  # no price data, skip
 
                 trade_age = (_date - open_trade.open_date).days
-                entry_price_data = market_snapshot.get(
-                    symbol=symbol,
-                    variable="close",
-                    dates=open_trade.open_date,
-                    with_timestamps=False,
-                )
-                entry_price = entry_price_data[0]
 
                 side = open_trade.side
                 if side == "buy":
-                    trade_pnl = (price - entry_price) * open_trade.quantity
-                    pct_change = (price / entry_price) - 1
+                    trade_pnl = (price - open_trade.price) * open_trade.quantity
+                    pct_change = (price / open_trade.price) - 1
                 else:
-                    trade_pnl = (entry_price - price) * open_trade.quantity
-                    pct_change = (entry_price / price) - 1
+                    trade_pnl = (open_trade.price - price) * open_trade.quantity
+                    pct_change = (open_trade.price / price) - 1
 
                 stop_hit = False
                 if side == "buy" and (
@@ -236,6 +157,7 @@ class SimpleBacktester(BacktesterBaseModel):
 
                 if stop_hit or trade_age >= self.max_hold_days:
                     open_trade.close_date = _date
+                    open_trade.close_price = price
                     open_trade.pnl = trade_pnl
                     del open_positions[symbol]
                     self.cash += price * open_trade.quantity
