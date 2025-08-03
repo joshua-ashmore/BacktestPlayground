@@ -1,16 +1,24 @@
 """Intent Model."""
 
 from datetime import date
-from typing import Literal
+from typing import Dict, List, Literal
 
 from pydantic import BaseModel
+
+
+class TradeIntentLeg(BaseModel):
+    """Trade Intent Leg."""
+
+    symbol: str
+    date: date
+    signal: Literal["buy", "sell"]
+    weight: float
+    strategy: str
 
 
 class TradeIntent(BaseModel):
     """Trade Intent."""
 
-    symbol: str
+    legs: List[TradeIntentLeg]
     date: date
-    signal: Literal["buy", "sell", "hold"]
-    weight: float
-    strategy: str
+    metadata: Dict[str, float | int | List[float]] = {}

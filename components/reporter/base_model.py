@@ -2,15 +2,16 @@
 
 import io
 import os
-from datetime import datetime
-from typing import Any, Optional
+from collections import defaultdict
+from datetime import date, datetime
+from typing import Any, List, Optional
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Patch, Rectangle
 from pydantic import BaseModel
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -43,12 +44,13 @@ class PDFReporter(BaseModel):
         job: "StrategyJob",
         market_snapshot: MarketSnapshot,
         metrics: PortfolioMetrics,
+        min_date: date,
     ):
         """Report."""
         os.makedirs(self.output_dir, exist_ok=True)
         self.styles = getSampleStyleSheet()
 
-        filename = f"{job.strategy_name}_{metrics.start_date}_{metrics.end_date}.pdf"
+        filename = f"{job.job_name}_{metrics.start_date}_{metrics.end_date}.pdf"
         filepath = os.path.join(self.output_dir, filename)
         doc = SimpleDocTemplate(filepath, pagesize=A4)
         elements = []
@@ -56,7 +58,7 @@ class PDFReporter(BaseModel):
         # Header with logo and title
         # logo = Image(self.logo_path, width=0.8 * inch, height=0.8 * inch)
         title = Paragraph(
-            f"<b>Strategy Report: {job.strategy_name}</b>", self.styles["Title"]
+            f"<b>Strategy Report: {job.job_name}</b>", self.styles["Title"]
         )
         date_info = Paragraph(
             f"Run Date: {datetime.now().strftime('%Y-%m-%d')}", self.styles["Normal"]
@@ -110,10 +112,14 @@ class PDFReporter(BaseModel):
         # elements.append(metadata_table)
         # elements.append(Spacer(1, 0.3 * inch))
 
+        elements, table = self.render_regime_metrics_pdf(
+            elements=elements, strategy_metrics=metrics.strategy_metrics
+        )
+
         summary_paragraph = Paragraph(
             f"""
             <b>Strategy Summary:</b><br/>
-            {job.strategy_name} executed over {metrics.start_date} to {metrics.end_date}.<br/>
+            {job.job_name} executed over {metrics.start_date} to {metrics.end_date}.<br/>
             Achieved {metrics.cumulative_return:.2%} return with a Sharpe ratio of {metrics.sharpe_ratio:.2f}.<br/>
             Max drawdown of {metrics.max_drawdown:.2%}.<br/>
             {metrics.num_trades} trades executed with a win rate of {0}%. metrics.win_rate * 100:.1f
@@ -128,6 +134,8 @@ class PDFReporter(BaseModel):
 
         elements.append(side_by_side_table)
         elements.append(Spacer(1, 0.3 * inch))
+
+        elements.append(table)
 
         # Commentary Section
         # commentary = []
@@ -179,16 +187,19 @@ class PDFReporter(BaseModel):
         chart_buf = self._fig_to_buf(fig=fig)
         elements.append(Image(chart_buf, width=6.5 * inch, height=5 * inch))
 
-        overlay_buf = self._plot_trade_overlay(
-            market_snapshot=market_snapshot,
-            trades=job.equity_curve,
-            symbol=job.tickers[0],
-        )
-        elements.append(Paragraph("Price with Trade Overlay", self.styles["Heading2"]))
-        elements.append(Image(overlay_buf, width=8 * inch, height=3.5 * inch))
+        # overlay_buf = self._plot_trade_overlay(
+        #     market_snapshot=market_snapshot,
+        #     trades=job.equity_curve,
+        #     symbol=job.tickers[0],
+        # )
+        # elements.append(Paragraph("Price with Trade Overlay", self.styles["Heading2"]))
+        # elements.append(Image(overlay_buf, width=8 * inch, height=3.5 * inch))
+
+        buf = self._chart_strategy_pnl(job=job)
+        elements.append(Image(buf, width=8 * inch, height=3.5 * inch))
 
         buf = self._benchmark_vs_portfolio_performance_figure(
-            market_snapshot=market_snapshot, metrics=metrics
+            market_snapshot=market_snapshot, metrics=metrics, min_date=min_date
         )
         elements.append(Image(buf, width=8 * inch, height=3.5 * inch))
 
@@ -198,8 +209,62 @@ class PDFReporter(BaseModel):
         doc.build(elements)
         print(f"Report saved to {filepath}")
 
+    def _chart_strategy_pnl(self, job: StrategyJob):
+        strategy_jobs = defaultdict(list)
+        for trade in job.equity_curve:
+            strategy_jobs[trade.legs[0].strategy].append(trade)
+
+        strategy_equity_curves = {}
+        for strategy, trades in strategy_jobs.items():
+            trades: List[Trade]
+            closed_trades = [
+                trade
+                for trade in trades
+                if trade.legs[0].close_date is not None
+                and trade.legs[0].pnl is not None
+            ]
+            df = pd.DataFrame(
+                [
+                    {
+                        "date": pd.to_datetime(trade.legs[0].close_date),
+                        "pnl": trade.legs[0].pnl,
+                    }
+                    for trade in closed_trades
+                ]
+            )
+            if len(df) != 0:
+                daily_pnl = df.groupby("date")["pnl"].sum().sort_index()
+                equity_curve = daily_pnl.cumsum()
+                strategy_equity_curves[strategy] = equity_curve
+
+        fig_height = min(6 + 2 * len(strategy_equity_curves), 20)
+
+        fig, axs = plt.subplots(
+            len(strategy_equity_curves),
+            1,
+            figsize=(12, fig_height),
+            constrained_layout=True,
+        )
+
+        # Ensure axs is always a list
+        if len(strategy_equity_curves) == 1:
+            axs = [axs]
+
+        for ax, (strategy, curve) in zip(axs, strategy_equity_curves.items()):
+            curve.plot(ax=ax)
+            ax.set_title(f"{strategy} Strategy Equity Curve")
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Cumulative PnL")
+            ax.grid(True)
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", dpi=300)
+        plt.close(fig)
+        buf.seek(0)
+        return buf
+
     def _benchmark_vs_portfolio_performance_figure(
-        self, market_snapshot: MarketSnapshot, metrics: PortfolioMetrics
+        self, market_snapshot: MarketSnapshot, metrics: PortfolioMetrics, min_date: date
     ):
         equity_series = pd.Series(metrics.equity_curve)
         portfolio_returns = equity_series.pct_change().fillna(0)
@@ -207,7 +272,9 @@ class PDFReporter(BaseModel):
 
         # Get benchmark price series
         benchmark_series = pd.Series(
-            market_snapshot.get(symbol="^SPX", variable="close", with_timestamps=True)
+            market_snapshot.get(
+                symbol="^SPX", variable="close", min_date=min_date, with_timestamps=True
+            )
         )
         benchmark_returns = benchmark_series.pct_change().fillna(0)
         benchmark_cum = (1 + benchmark_returns).cumprod()
@@ -217,14 +284,56 @@ class PDFReporter(BaseModel):
         portfolio_cum = portfolio_cum.loc[common_index]
         benchmark_cum = benchmark_cum.loc[common_index]
 
+        if metrics.regime_timeseries:
+            regimes = pd.Series(metrics.regime_timeseries)
+            regimes = regimes.loc[common_index]
+            # Colors for regimes
+            regime_colors = {
+                "mean_reverting": "lightblue",
+                "volatile": "mistyrose",
+                "trending": "lightgreen",
+            }
+
+            # Identify contiguous blocks of the same regime
+            regime_blocks = []
+            prev_regime = None
+            start_date = None
+
+            for _date, regime in regimes.items():
+                if regime != prev_regime:
+                    if prev_regime is not None:
+                        regime_blocks.append((start_date, _date, prev_regime))
+                    start_date = _date
+                    prev_regime = regime
+            # Append final block
+            regime_blocks.append((start_date, regimes.index[-1], prev_regime))
+
+            regime_patches = [
+                Patch(color=color, alpha=0.9, label=label)
+                for label, color in regime_colors.items()
+            ]
+
         # Create plot
         fig, ax = plt.subplots(figsize=(10, 4))
         ax.plot(portfolio_cum, label="Strategy", color="blue")
         ax.plot(benchmark_cum, label="Benchmark (SPX)", color="gray", linestyle="--")
+
+        if metrics.regime_timeseries:
+            # Shade background for regimes
+            for start, end, regime in regime_blocks:
+                ax.axvspan(
+                    start, end, color=regime_colors.get(regime, "white"), alpha=0.9
+                )
+
+            # Add all legend elements (lines + patches)
+            line_handles, line_labels = ax.get_legend_handles_labels()
+            ax.legend(handles=line_handles + regime_patches)
+        else:
+            ax.legend()
+
         ax.set_title("Cumulative Returns: Strategy vs Benchmark")
         ax.set_xlabel("Date")
         ax.set_ylabel("Cumulative Return")
-        ax.legend()
         ax.grid(True)
         fig.tight_layout()
 
@@ -239,9 +348,9 @@ class PDFReporter(BaseModel):
         trade_data = pd.DataFrame(
             [
                 {
-                    "symbol": t.symbol,
-                    "close_date": pd.to_datetime(t.close_date),
-                    "pnl": t.pnl,
+                    "symbol": "-".join(sorted([leg.symbol for leg in t.legs])),
+                    "close_date": pd.to_datetime(t.legs[0].close_date),
+                    "pnl": sum([leg.pnl for leg in t.legs if leg.pnl is not None]),
                 }
                 for t in job.equity_curve
             ]
@@ -313,12 +422,66 @@ class PDFReporter(BaseModel):
         buf.seek(0)
         return buf
 
+    def render_regime_metrics_pdf(self, elements: list, strategy_metrics: dict):
+
+        styles = getSampleStyleSheet()
+
+        # Title
+        elements.append(Paragraph("Performance by Regime", styles["Title"]))
+        elements.append(Spacer(1, 12))
+
+        # Table data
+        table_data = [
+            [
+                "Regime",
+                "Number of Trades",
+                "Win Rate",
+                "Avg Trade PnL",
+                "Total Trade PnL",
+            ]
+        ]
+
+        for regime, metrics in strategy_metrics.items():
+            table_data.append(
+                [
+                    regime,
+                    f"{metrics['num_trades']:.2f}",
+                    f"{metrics['win_rate']:.2%}",
+                    f"{metrics['avg_pnl']:.2f}",
+                    f"{metrics['total_pnl']:.2f}",
+                ]
+            )
+
+        # Build table
+        table = Table(table_data, repeatRows=1)
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    (
+                        "ROWBACKGROUNDS",
+                        (0, 1),
+                        (-1, -1),
+                        [colors.whitesmoke, colors.lightgrey],
+                    ),
+                ]
+            )
+        )
+
+        return elements, table
+
     def _plot_trade_overlay(
         self, market_snapshot: MarketSnapshot, trades: list[Trade], symbol: str
     ) -> io.BytesIO:
-        return plot_trade_overlay_matplotlib(
-            market_snapshot=market_snapshot, trades=trades, symbol=symbol
-        )
+        # return plot_trade_overlay_matplotlib(
+        #     market_snapshot=market_snapshot, trades=trades, symbol=symbol
+        # )
+        return
 
 
 def plot_trade_overlay_matplotlib(
@@ -326,6 +489,7 @@ def plot_trade_overlay_matplotlib(
     trades: list[Trade],
     symbol: str,
 ) -> io.BytesIO:
+    # TODO: fix this for trade legs
     """
     ohlc: DataFrame with columns ['open', 'high', 'low', 'close'] and datetime index
     trades: list of Trade objects with .symbol, .open_date, .close_date, .side, .quantity
@@ -371,25 +535,25 @@ def plot_trade_overlay_matplotlib(
 
     # Draw trade rectangles + markers
     for trade in trades:
-        if trade.symbol != symbol:
+        if trade.legs[0].symbol != symbol:
             continue
 
-        open_date = pd.to_datetime(trade.open_date)
-        close_date = pd.to_datetime(trade.close_date or df.index[-1])
+        open_date = pd.to_datetime(trade.legs[0].open_date)
+        close_date = pd.to_datetime(trade.legs[0].close_date or df.index[-1])
 
         open_price = df.loc[open_date]["close"]
         close_price = df.loc[close_date]["close"]
-        pnl_positive = (close_price - open_price) * trade.quantity > 0
+        pnl_positive = (close_price - open_price) * trade.legs[0].quantity > 0
 
         color = "green" if pnl_positive else "red"
 
-        open_dt = mdates.date2num(pd.to_datetime(trade.open_date))
+        open_dt = mdates.date2num(pd.to_datetime(trade.legs[0].open_date))
         close_dt = (
-            mdates.date2num(pd.to_datetime(trade.close_date))
-            if trade.close_date
+            mdates.date2num(pd.to_datetime(trade.legs[0].close_date))
+            if trade.legs[0].close_date
             else open_dt + 1
         )
-        trade_pnl = (close_price - open_price) * trade.quantity or 0
+        trade_pnl = (close_price - open_price) * trade.legs[0].quantity or 0
         pnl_label = f"{trade_pnl:.2f}" if trade_pnl is not None else ""
         alpha = 0.2
         # alpha = min(0.1 + abs(trade.pnl or 0) / 10, 0.8)

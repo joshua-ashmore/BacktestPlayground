@@ -8,6 +8,7 @@ import streamlit as st
 
 from components.trades.trade_model import Trade
 from engine.orchestrator import OrchestratorConfig
+from frontend.db_utils import load_strategy_metrics
 
 
 def generate_config(config: OrchestratorConfig):
@@ -15,12 +16,25 @@ def generate_config(config: OrchestratorConfig):
 
     st.subheader("Strategy Configuration")
 
-    with st.expander("Job Details"):
-        st.write(f"**Strategy Name**: {config.job.strategy_name}")
-        st.write(f"**Date**: {config.job.current_date}")
-        st.write(f"**Tickers**: {', '.join(config.job.tickers)}")
+    # Create 3 columns
+    col1, col2, col3 = st.columns(3)
 
-    with st.expander("Backtester Settings"):
+    # --- Column 1: Job Details ---
+    with col1.expander("Job Details"):
+        st.write(f"**Strategy Name**: {config.job.job_name}")
+        st.write(f"**Date**: {config.job.current_date}")
+        if config.regime_engine:
+            tickers = ", ".join(
+                symbol
+                for job in config.regime_engine.strategy_map.values()
+                for symbol in job.symbols
+            )
+        else:
+            tickers = ", ".join(config.job.tickers)
+        st.write(f"**Tickers**: {tickers}")
+
+    # --- Column 2: Backtester Settings ---
+    with col2.expander("Backtester Settings"):
         st.write(f"**Initial Cash**: ${config.backtester.initial_cash:,}")
         st.write(f"**Max Hold Days**: {config.backtester.max_hold_days}")
         st.write(
@@ -29,7 +43,8 @@ def generate_config(config: OrchestratorConfig):
         st.write(f"**Stop Loss**: {config.backtester.stop_loss_pct * 100:.1f}%")
         st.write(f"**Take Profit**: {config.backtester.take_profit_pct * 100:.1f}%")
 
-    with st.expander("Market Feed"):
+    # --- Column 3: Market Feed ---
+    with col3.expander("Market Feed"):
         st.write(f"**Source**: {config.market_feed.source.value}")
         st.write(f"**Start Date**: {config.market_feed.data_inputs.start_date}")
         st.write(f"**End Date**: {config.market_feed.data_inputs.end_date}")
@@ -38,6 +53,7 @@ def generate_config(config: OrchestratorConfig):
 
 def generate_layout(selected_summary):
     """Generate Layout."""
+    st.subheader("Portfolio Metrics")
     col1, col2, col3, col4, col5 = st.columns(5)
 
     col1.metric("Cumulative Return", f"{selected_summary['cumulative_return']:.2%}")
@@ -64,7 +80,58 @@ def generate_charts(ts_df: pd.DataFrame):
     else:
         st.subheader("Equity Curve")
 
+        ts_df["regime"] = ts_df["regime_timeseries"]
+        ts_df["prev_regime"] = ts_df["regime"].shift(1)
+        ts_df["segment"] = (ts_df["regime"] != ts_df["prev_regime"]).cumsum()
+
+        regime_ranges = (
+            ts_df.groupby(["segment", "regime"])
+            .agg(start_date=("date", "min"), end_date=("date", "max"))
+            .reset_index()
+        )
+        # color_scale = alt.Scale(
+        #     domain=["trending", "volatile", "mean_reverting"],
+        #     range=["#cce5ff", "#ffe5b4", "#e5ffe5"],
+        # )
+        color_scale = alt.Scale(
+            domain=["trending", "volatile", "mean_reverting"],
+            range=["#1f77b4", "#ff7f0e", "#2ca02c"],  # vibrant blue, orange, green
+        )
+
+        regime_chart = (
+            alt.Chart(regime_ranges)
+            .mark_rect(opacity=0.7)
+            .encode(
+                x="start_date:T",
+                x2="end_date:T",
+                color=alt.Color(
+                    "regime:N", scale=color_scale, legend=alt.Legend(title="Regime")
+                ),
+            )
+        )
+
         min_equity = ts_df["equity_curve"].min()
+        # line_chart = (
+        #     alt.Chart(ts_df)
+        #     .mark_line()
+        #     .encode(
+        #         x=alt.X(
+        #             "date:T",
+        #             title="Date",
+        #             axis=alt.Axis(
+        #                 format="%b %Y",
+        #                 labelAngle=-45,
+        #             ),
+        #         ),
+        #         y=alt.Y(
+        #             "equity_curve:Q",
+        #             title="Equity Curve Value",
+        #             scale=alt.Scale(domainMin=min_equity),
+        #         ),
+        #         tooltip=["date:T", "equity_curve:Q"],
+        #     )
+        #     .properties(height=300, width="container")
+        # )
         line_chart = (
             alt.Chart(ts_df)
             .mark_line()
@@ -72,10 +139,7 @@ def generate_charts(ts_df: pd.DataFrame):
                 x=alt.X(
                     "date:T",
                     title="Date",
-                    axis=alt.Axis(
-                        format="%b %Y",
-                        labelAngle=-45,
-                    ),
+                    axis=alt.Axis(format="%b %Y", labelAngle=-45),
                 ),
                 y=alt.Y(
                     "equity_curve:Q",
@@ -87,7 +151,13 @@ def generate_charts(ts_df: pd.DataFrame):
             .properties(height=300, width="container")
         )
 
-        st.altair_chart(line_chart, use_container_width=True)
+        combined_chart = (
+            alt.layer(regime_chart, line_chart)
+            .resolve_scale(color="independent")
+            .interactive()
+        )
+
+        st.altair_chart(combined_chart, use_container_width=True)
 
         st.subheader("Rolling Sharpe Ratio")
         sharpe_chart = (
@@ -175,3 +245,50 @@ def display_trade_table(trades: List[Trade]):
 
     st.subheader("Trade History")
     st.dataframe(df, use_container_width=True)
+
+
+def generate_multi_strat_table(selected_summary_id):
+    st.subheader("Multi Strategy Metrics")
+    strategy_metrics = load_strategy_metrics(summary_id=selected_summary_id)
+    # Convert dict to DataFrame
+    df = pd.DataFrame.from_dict(strategy_metrics, orient="index")
+
+    # Rename the indices nicely
+    df.index = df.index.str.replace("_", " ").str.title()
+    df.index.name = "Strategy"
+
+    # Format columns
+    df["Win Rate"] = df["win_rate"].map("{:.1%}".format)
+    df["Avg PnL"] = df["avg_pnl"].map("{:.2f}".format)
+    df["Total PnL"] = df["total_pnl"].map("{:.2f}".format)
+    df["Num Trades"] = df["num_trades"].astype(int)
+
+    # Drop old columns now replaced with formatted ones
+    df = df.drop(columns=["win_rate", "avg_pnl", "total_pnl", "num_trades"])
+
+    # Reorder columns nicely
+    df = df[["Num Trades", "Win Rate", "Avg PnL", "Total PnL"]]
+
+    def style_table(styler):
+        # Color text for Num Trades and Avg PnL columns based on value
+        def color_text(val):
+            try:
+                val_float = float(val.replace(",", "").replace("%", ""))
+                if val_float > 0:
+                    return "color: green; font-weight: bold"
+                elif val_float < 0:
+                    return "color: red; font-weight: bold"
+                else:
+                    return ""
+            except ValueError:
+                return ""
+
+        # Apply white color and center text for all cells
+        styler = styler.set_properties(**{"color": "white", "text-align": "center"})
+
+        # Apply text coloring only to specific columns
+        styler = styler.applymap(color_text, subset=["Num Trades", "Avg PnL"])
+
+        return styler
+
+    st.dataframe(style_table(df.style))

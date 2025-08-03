@@ -1,13 +1,13 @@
 """Trade Model."""
 
 from datetime import date
-from typing import Literal, Optional
+from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
-class Trade(BaseModel):
-    """Trade Model."""
+class TradeLeg(BaseModel):
+    """Trade Leg Model."""
 
     symbol: str
     open_date: date
@@ -19,3 +19,17 @@ class Trade(BaseModel):
     strategy: str
     side: Literal["buy", "sell"]
     pnl: Optional[float] = None
+    direction_multiplier: Optional[float] = 0
+
+    @model_validator(mode="after")
+    def post_validate_model(self):
+        """Post validate model."""
+        self.direction_multiplier = 1 if self.side == "buy" else -1
+        return self
+
+
+class Trade(BaseModel):
+    """Trade Model."""
+
+    legs: List[TradeLeg]
+    metadata: Dict[str, float | int | List[float]] = {}

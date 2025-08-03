@@ -144,7 +144,7 @@ if run_btn:
     with st.spinner("Running backtest..."):
         config = OrchestratorConfig(
             job=StrategyJob(
-                strategy_name=strategy_name, current_date=start_date, tickers=tickers
+                job_name=strategy_name, current_date=start_date, tickers=tickers
             ),
             market_feed=HistoricalFeed(
                 data_inputs=DataInputs(
