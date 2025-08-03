@@ -445,10 +445,10 @@ class PDFReporter(BaseModel):
             table_data.append(
                 [
                     regime,
-                    f"{metrics["num_trades"]:.2f}",
-                    f"{metrics["win_rate"]:.2%}",
-                    f"{metrics["avg_pnl"]:.2f}",
-                    f"{metrics["total_pnl"]:.2f}",
+                    f"{metrics['num_trades']:.2f}",
+                    f"{metrics['win_rate']:.2%}",
+                    f"{metrics['avg_pnl']:.2f}",
+                    f"{metrics['total_pnl']:.2f}",
                 ]
             )
 
