@@ -2,12 +2,13 @@
 
 import json
 import sqlite3
+from typing import Dict
 
 import pandas as pd
 
 from components.metrics.base_model import PortfolioMetrics
 
-DB_PATH = "portfolio_metrics.db"
+DB_PATH = "data/portfolio_metrics.db"
 
 
 def get_summary_df():
@@ -23,7 +24,7 @@ def get_timeseries_df(summary_id: int):
     with sqlite3.connect(DB_PATH) as conn:
         return pd.read_sql_query(
             """
-            SELECT date, equity_curve, daily_return, rolling_sharpe, rolling_drawdown
+            SELECT date, equity_curve, daily_return, rolling_sharpe, rolling_drawdown, regime_timeseries
             FROM portfolio_timeseries
             WHERE summary_id = ?
             ORDER BY date ASC
@@ -51,13 +52,42 @@ def load_latest_strategy_config(strategy_name: str) -> dict | None:
         return None
 
 
+def load_strategy_metrics(summary_id: int) -> Dict[str, Dict[str, float]]:
+    with sqlite3.connect(DB_PATH) as conn:
+        df = pd.read_sql_query(
+            """
+            SELECT regime, metric_name, metric_value
+            FROM portfolio_strategy_metrics
+            WHERE summary_id = ?
+            """,
+            conn,
+            params=(summary_id,),
+        )
+
+    regime_dict = {}
+    for _, row in df.iterrows():
+        regime = row["regime"]
+        if regime not in regime_dict:
+            regime_dict[regime] = {}
+        regime_dict[regime][row["metric_name"]] = row["metric_value"]
+    return regime_dict
+
+
 def metrics_to_dataframe(metrics: PortfolioMetrics) -> pd.DataFrame:
     equity_curve = pd.Series(metrics.equity_curve, name="equity_curve")
     daily_returns = pd.Series(metrics.daily_returns, name="daily_return")
     rolling_sharpe = pd.Series(metrics.rolling_sharpe, name="rolling_sharpe")
     rolling_drawdown = pd.Series(metrics.rolling_drawdown, name="rolling_drawdown")
+    regime_timeseries = pd.Series(metrics.regime_timeseries, name="regime_timeseries")
     df = pd.concat(
-        [equity_curve, daily_returns, rolling_sharpe, rolling_drawdown], axis=1
+        [
+            equity_curve,
+            daily_returns,
+            rolling_sharpe,
+            rolling_drawdown,
+            regime_timeseries,
+        ],
+        axis=1,
     )
     df.index = pd.to_datetime(df.index)
     df.reset_index(inplace=True)

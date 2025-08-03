@@ -2,6 +2,7 @@
 
 from datetime import datetime
 
+import pandas as pd
 import streamlit as st
 
 from engine.orchestrator import OrchestratorConfig
@@ -9,8 +10,14 @@ from frontend.db_utils import (
     get_summary_df,
     get_timeseries_df,
     load_latest_strategy_config,
+    load_strategy_metrics,
 )
-from frontend.st_utils import generate_charts, generate_config, generate_layout
+from frontend.st_utils import (
+    generate_charts,
+    generate_config,
+    generate_layout,
+    generate_multi_strat_table,
+)
 
 # --- Streamlit UI ---
 st.set_page_config(layout="wide", page_title="Portfolio Dashboard")
@@ -39,14 +46,18 @@ selected_summary_id = st.selectbox(
 
 # Get selected row
 selected_summary = summary_df[summary_df["id"] == selected_summary_id].iloc[0]
+strategy_config = load_latest_strategy_config(selected_summary["strategy_name"])
+print(strategy_config)
 
-config = OrchestratorConfig(
-    **load_latest_strategy_config(selected_summary["strategy_name"])
-)
+config = OrchestratorConfig(**strategy_config)
 generate_config(config=config)
 
 # --- Layout ---
 generate_layout(selected_summary=selected_summary)
+
+# --- Multi Strat Table ---
+st.markdown("---")
+generate_multi_strat_table(selected_summary_id)
 
 # --- Time series plot ---
 st.markdown("---")
