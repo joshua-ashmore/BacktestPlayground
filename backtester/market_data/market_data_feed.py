@@ -58,12 +58,21 @@ class AbstractMarketFeed(BaseModel):
 
     def generate_dates(self):
         """Generate dates from market data."""
-        dates = []
-        for underlying in self.market_snapshot.data:
-            dates.extend(
-                [datum.datetime for datum in self.market_snapshot.data[underlying]]
+        price_series = {}
+
+        for symbol in self.market_snapshot.data.keys():
+            closes = self.market_snapshot.get(
+                symbol=symbol, variable="close", with_timestamps=True
             )
-        return dates
+            series = pd.Series(
+                data=list(closes.values()), index=list(closes.keys())
+            ).sort_index()
+            price_series[symbol] = series
+
+        common_index = sorted(
+            set.intersection(*(set(s.index) for s in price_series.values()))
+        )
+        return common_index
 
     def setup_market_data(self):
         """
