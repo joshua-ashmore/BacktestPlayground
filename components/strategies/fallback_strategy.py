@@ -2,6 +2,7 @@
 
 from datetime import date
 from typing import List, Literal
+
 from components.job.base_model import StrategyJob
 from components.strategies.base_model import Strategy
 from components.trades.intent_model import TradeIntent

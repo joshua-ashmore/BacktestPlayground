@@ -1,8 +1,8 @@
 """Reporter Base Model."""
 
-from collections import defaultdict
 import io
 import os
+from collections import defaultdict
 from datetime import date, datetime
 from typing import Any, List, Optional
 

@@ -280,7 +280,7 @@ def generate_multi_strat_table(selected_summary_id):
                     return "color: red; font-weight: bold"
                 else:
                     return ""
-            except:
+            except ValueError:
                 return ""
 
         # Apply white color and center text for all cells

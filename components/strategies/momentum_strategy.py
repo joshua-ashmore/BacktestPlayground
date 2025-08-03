@@ -11,7 +11,6 @@ from components.strategies.base_model import Strategy
 from components.trades.intent_model import TradeIntent, TradeIntentLeg
 from components.trades.trade_model import Trade
 
-
 # class MomentumStrategyJob(Strategy):
 #     """Momentum Strategy Job."""
 

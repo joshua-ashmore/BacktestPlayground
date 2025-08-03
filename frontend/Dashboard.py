@@ -2,7 +2,6 @@
 
 from datetime import datetime
 
-import pandas as pd
 import streamlit as st
 
 from engine.orchestrator import OrchestratorConfig
@@ -10,7 +9,6 @@ from frontend.db_utils import (
     get_summary_df,
     get_timeseries_df,
     load_latest_strategy_config,
-    load_strategy_metrics,
 )
 from frontend.st_utils import (
     generate_charts,

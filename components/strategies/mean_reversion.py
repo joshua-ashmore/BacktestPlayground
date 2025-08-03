@@ -6,14 +6,12 @@ from typing import Dict, List, Literal, Union
 
 import numpy as np
 import pandas as pd
+from statsmodels.regression.linear_model import OLS
+from statsmodels.tsa.stattools import adfuller, coint
 
 from components.job.base_model import StrategyJob
 from components.strategies.base_model import Strategy
 from components.trades.intent_model import TradeIntent, TradeIntentLeg
-
-from statsmodels.tsa.stattools import coint, adfuller
-from statsmodels.regression.linear_model import OLS
-
 from components.trades.trade_model import Trade
 
 

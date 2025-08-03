@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from datetime import date
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -13,6 +13,7 @@ from components.backtester.base_model import PortfolioSnapshot
 
 if TYPE_CHECKING:
     from components.regime.regime_engines import RegimeEngines
+
 from components.trades.trade_model import Trade
 
 

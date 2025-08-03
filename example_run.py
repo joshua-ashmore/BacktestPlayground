@@ -9,7 +9,6 @@ from components.metrics.base_model import MetricsEngine
 from components.regime.multi_hmm_engine import MultiHMMEngine
 from components.reporter.base_model import PDFReporter
 from components.strategies.angular_momentum import AngleMomentumStrategy
-from components.strategies.fallback_strategy import FallbackStrategyJob
 from components.strategies.mean_reversion import PairsTradingStrategyJob
 from components.strategies.volatility_breakout import VolatilityBreakoutStrategyJob
 from engine.orchestrator import Orchestrator, OrchestratorConfig

@@ -5,10 +5,11 @@ from typing import Dict, Literal
 
 import numpy as np
 import pandas as pd
+from hmmlearn.hmm import GaussianHMM
 from sklearn.decomposition import PCA
+
 from components.job.base_model import StrategyJob
 from components.regime.base_model import AbstractRegimeEngine
-from hmmlearn.hmm import GaussianHMM
 
 
 class MultiHMMEngine(AbstractRegimeEngine):
