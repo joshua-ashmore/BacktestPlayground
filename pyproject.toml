@@ -18,6 +18,7 @@ ipykernel = "^6.29.5"
 reportlab = "^4.4.3"
 altair = "^5.5.0"
 streamlit = "^1.47.1"
+hmmlearn = "^0.3.3"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
