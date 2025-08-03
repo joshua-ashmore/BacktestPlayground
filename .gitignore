@@ -1,0 +1,7 @@
+notebooks/
+reports/
+
+# PyCache
+__pycache__/
+*.pyc
+*.pyo
