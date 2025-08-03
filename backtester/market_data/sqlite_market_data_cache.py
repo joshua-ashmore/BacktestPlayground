@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from typing import Dict
 
 import pandas as pd
 
@@ -11,7 +12,7 @@ from components.metrics.base_model import PortfolioMetrics
 
 
 class SQLiteMarketCache:
-    def __init__(self, db_path: str = "market_data_cache.db"):
+    def __init__(self, db_path: str = "data/market_data_cache.db"):
         self.db_path = db_path
         self._init_db()
 
@@ -107,7 +108,7 @@ class SQLiteMarketCache:
             """
             df = pd.read_sql_query(query, conn, params=[symbol, start_date, end_date])
         df["datetime"] = pd.to_datetime(df["datetime"])
-        return set(df["datetime"].dt.normalize())  # Just keep dates (drop times)
+        return set(df["datetime"].dt.normalize())
 
     def is_range_cached(self, symbol: str, start_date: str, end_date: str) -> bool:
         """Check if the date range is fully cached for the given symbol."""
@@ -131,7 +132,7 @@ class SQLiteMarketCache:
 
 
 class SQLiteMetricsStore:
-    def __init__(self, db_path: str = "portfolio_metrics.db"):
+    def __init__(self, db_path: str = "data/portfolio_metrics.db"):
         self.db_path = db_path
         self._init_db()
 
@@ -168,9 +169,22 @@ class SQLiteMetricsStore:
                     daily_return REAL,
                     rolling_sharpe REAL,
                     rolling_drawdown REAL,
+                    regime_timeseries REAL,
                     FOREIGN KEY (summary_id) REFERENCES portfolio_summary(id)
                 )
             """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS portfolio_strategy_metrics (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    summary_id INTEGER NOT NULL,
+                    regime TEXT NOT NULL,
+                    metric_name TEXT NOT NULL,
+                    metric_value REAL,
+                    FOREIGN KEY(summary_id) REFERENCES portfolio_summary(id)
+                )
+                """
             )
             conn.execute(
                 """
@@ -243,13 +257,13 @@ class SQLiteMetricsStore:
         summary_id = c.lastrowid
 
         # Insert timeseries
-        for d in metrics.daily_returns:
+        for d in metrics.equity_curve:
             c.execute(
                 """
                 INSERT INTO portfolio_timeseries (
                     summary_id, date, equity_curve, daily_return,
-                    rolling_sharpe, rolling_drawdown
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    rolling_sharpe, rolling_drawdown, regime_timeseries
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     summary_id,
@@ -258,18 +272,30 @@ class SQLiteMetricsStore:
                     metrics.daily_returns.get(d),
                     metrics.rolling_sharpe.get(d),
                     metrics.rolling_drawdown.get(d),
+                    metrics.regime_timeseries.get(d),
                 ),
             )
 
+        for regime, metric_dict in metrics.strategy_metrics.items():
+            for metric_name, value in metric_dict.items():
+                c.execute(
+                    """
+                    INSERT INTO portfolio_strategy_metrics (
+                        summary_id, regime, metric_name, metric_value
+                    ) VALUES (?, ?, ?, ?)
+                    """,
+                    (summary_id, regime, metric_name, float(value)),
+                )
+
         conn.commit()
         conn.close()
-        return summary_id  # useful for downstream dashboards
+        return summary_id
 
     def load_timeseries(self, summary_id: int) -> pd.DataFrame:
         conn = sqlite3.connect(self.db_path)
         df = pd.read_sql_query(
             """
-            SELECT date, equity_curve, daily_return, rolling_sharpe, rolling_drawdown
+            SELECT date, equity_curve, daily_return, rolling_sharpe, rolling_drawdown, regime_drawdown
             FROM portfolio_timeseries
             WHERE summary_id = ?
             ORDER BY date ASC
@@ -280,6 +306,27 @@ class SQLiteMetricsStore:
         )
         conn.close()
         return df
+
+    def load_strategy_metrics(self, summary_id: int) -> Dict[str, Dict[str, float]]:
+        conn = sqlite3.connect(self.db_path)
+        df = pd.read_sql_query(
+            """
+            SELECT regime, metric_name, metric_value
+            FROM portfolio_strategy_metrics
+            WHERE summary_id = ?
+            """,
+            conn,
+            params=(summary_id,),
+        )
+        conn.close()
+
+        strat_dict = {}
+        for _, row in df.iterrows():
+            strat = row["strategy"]
+            if strat not in strat_dict:
+                strat_dict[strat] = {}
+            strat_dict[strat][row["metric_name"]] = row["metric_value"]
+        return strat_dict
 
     def load_summary(self) -> pd.DataFrame:
         conn = sqlite3.connect(self.db_path)
