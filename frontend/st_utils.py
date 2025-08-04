@@ -72,7 +72,7 @@ def generate_layout(selected_summary):
     col10.metric("Turnover", f"{selected_summary['turnover']:.2f}")
 
 
-def generate_charts(ts_df: pd.DataFrame):
+def generate_charts(ts_df: pd.DataFrame, regime: bool = True):
     """Generate Charts."""
 
     if ts_df.empty:
@@ -89,10 +89,6 @@ def generate_charts(ts_df: pd.DataFrame):
             .agg(start_date=("date", "min"), end_date=("date", "max"))
             .reset_index()
         )
-        # color_scale = alt.Scale(
-        #     domain=["trending", "volatile", "mean_reverting"],
-        #     range=["#cce5ff", "#ffe5b4", "#e5ffe5"],
-        # )
         color_scale = alt.Scale(
             domain=["trending", "volatile", "mean_reverting"],
             range=["#1f77b4", "#ff7f0e", "#2ca02c"],  # vibrant blue, orange, green
@@ -111,27 +107,6 @@ def generate_charts(ts_df: pd.DataFrame):
         )
 
         min_equity = ts_df["equity_curve"].min()
-        # line_chart = (
-        #     alt.Chart(ts_df)
-        #     .mark_line()
-        #     .encode(
-        #         x=alt.X(
-        #             "date:T",
-        #             title="Date",
-        #             axis=alt.Axis(
-        #                 format="%b %Y",
-        #                 labelAngle=-45,
-        #             ),
-        #         ),
-        #         y=alt.Y(
-        #             "equity_curve:Q",
-        #             title="Equity Curve Value",
-        #             scale=alt.Scale(domainMin=min_equity),
-        #         ),
-        #         tooltip=["date:T", "equity_curve:Q"],
-        #     )
-        #     .properties(height=300, width="container")
-        # )
         line_chart = (
             alt.Chart(ts_df)
             .mark_line()
@@ -150,12 +125,14 @@ def generate_charts(ts_df: pd.DataFrame):
             )
             .properties(height=300, width="container")
         )
-
-        combined_chart = (
-            alt.layer(regime_chart, line_chart)
-            .resolve_scale(color="independent")
-            .interactive()
-        )
+        if regime:
+            combined_chart = (
+                alt.layer(regime_chart, line_chart)
+                .resolve_scale(color="independent")
+                .interactive()
+            )
+        else:
+            combined_chart = line_chart
 
         st.altair_chart(combined_chart, use_container_width=True)
 
@@ -217,17 +194,31 @@ def display_trade_table(trades: List[Trade]):
         st.info("No trades found for this strategy.")
         return
 
-    # Convert list of Trade objects to DataFrame
-    df = pd.DataFrame([t.model_dump() for t in trades])
+    # Flatten all legs from all trades into a list of dicts
+    leg_records = []
+    for trade in trades:
+        for leg in trade.legs:
+            leg_records.append(
+                {
+                    "symbol": leg.symbol,
+                    "open_date": pd.to_datetime(leg.open_date),
+                    "close_date": pd.to_datetime(leg.close_date),
+                    "quantity": round(leg.quantity, 2),
+                    "price": round(leg.price, 2),
+                    "close_price": (
+                        round(leg.close_price, 2) if leg.close_price else None
+                    ),
+                    "notional": round(leg.notional, 2),
+                    "side": leg.side,
+                    "pnl": round(leg.pnl, 2) if leg.pnl else None,
+                }
+            )
 
-    # Optional formatting (you can remove/adjust as needed)
-    df["open_date"] = pd.to_datetime(df["open_date"])
-    df["close_date"] = pd.to_datetime(df["close_date"])
-    df["notional"] = df["notional"].round(2)
-    df["pnl"] = df["pnl"].round(2)
-    df["price"] = df["price"].round(2)
-    df["close_price"] = df["close_price"].round(2)
-    df["quantity"] = df["quantity"].round(2)
+    if not leg_records:
+        st.info("No trade legs found.")
+        return
+
+    df = pd.DataFrame(leg_records)
 
     df = df.rename(
         columns={

@@ -8,57 +8,18 @@ from backtester.market_data.market_data_feed import DataInputs, HistoricalFeed
 from components.backtester.simple_backtester import SimpleBacktester
 from components.job.base_model import StrategyJob
 from components.metrics.base_model import MetricsEngine
-from components.strategies.momentum_strategy import MomentumStrategyJob
 from engine.orchestrator import Orchestrator, OrchestratorConfig
 from frontend.db_utils import metrics_to_dataframe, orchestrator_config_to_df_simple
+from frontend.strategy_util import STRATEGY_REGISTRY
 from frontend.st_utils import display_trade_table, generate_charts, generate_layout
 
 st.title("Run Custom Strategy")
 
+
 # --- 1. User Input ---
-strategy_name = st.text_input("Strategy Name", value="Custom Momentum")
 with st.container():
     col1, col2, col3 = st.columns(3)
     with col1:
-        selected_strategy = st.selectbox("Strategy", ["Momentum"])
-    with col2:
-        start_date = st.date_input("Start Date", date(2025, 1, 1))
-    with col3:
-        end_date = st.date_input("End Date", date.today())
-
-with st.container():
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        ticker_options = {
-            "AAPL": "Apple (Tech)",
-            "MSFT": "Microsoft (Tech)",
-            "AMZN": "Amazon (Consumer Discretionary)",
-            "GOOG": "Google (Tech)",
-            "META": "Meta (Communication Services)",
-            "NVDA": "Nvidia (Tech)",
-            "TSLA": "Tesla (Consumer Discretionary)",
-            "BRK.B": "Berkshire Hathaway (Financials)",
-            "JPM": "JPMorgan Chase (Financials)",
-            "V": "Visa (Financials)",
-            "UNH": "UnitedHealth (Health Care)",
-            "XOM": "Exxon Mobil (Energy)",
-            "CVX": "Chevron (Energy)",
-            "PFE": "Pfizer (Health Care)",
-            "WMT": "Walmart (Consumer Staples)",
-            "COST": "Costco (Consumer Staples)",
-            "HD": "Home Depot (Consumer Discretionary)",
-            "INTC": "Intel (Tech)",
-            "CSCO": "Cisco (Tech)",
-            "NKE": "Nike (Consumer Discretionary)",
-        }
-        tickers = st.multiselect(
-            "Select Tradable Tickers",
-            options=list(ticker_options.keys()),
-            default=list(ticker_options.keys())[:5],
-            format_func=lambda x: ticker_options.get(x, x),
-            help="Choose from a diversified set of high-quality U.S. stocks.",
-        )
-    with col2:
         benchmark_options = {
             "^SPX": "S&P 500",
             "^NDX": "Nasdaq-100",
@@ -77,15 +38,72 @@ with st.container():
             options=benchmark_options.keys(),
             format_func=lambda k: benchmark_options[k],
         )
+    with col2:
+        start_date = st.date_input("Start Date", date(2025, 1, 1))
+    with col3:
+        end_date = st.date_input("End Date", date.today())
+
+
+preset_tickers = {
+    "AAPL": "Apple (Tech)",
+    "MSFT": "Microsoft (Tech)",
+    "AMZN": "Amazon (Consumer Discretionary)",
+    "GOOG": "Google (Tech)",
+    "META": "Meta (Communication Services)",
+    "NVDA": "Nvidia (Tech)",
+    "TSLA": "Tesla (Consumer Discretionary)",
+    "BRK.B": "Berkshire Hathaway (Financials)",
+    "JPM": "JPMorgan Chase (Financials)",
+    "V": "Visa (Financials)",
+    "UNH": "UnitedHealth (Health Care)",
+    "XOM": "Exxon Mobil (Energy)",
+    "CVX": "Chevron (Energy)",
+    "PFE": "Pfizer (Health Care)",
+    "WMT": "Walmart (Consumer Staples)",
+    "COST": "Costco (Consumer Staples)",
+    "HD": "Home Depot (Consumer Discretionary)",
+    "INTC": "Intel (Tech)",
+    "CSCO": "Cisco (Tech)",
+    "NKE": "Nike (Consumer Discretionary)",
+}
 
 with st.container():
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns([1, 2])
     with col1:
-        top_n = st.slider("Top N", 1, len(tickers), value=3)
-    with col2:
-        base_window = st.slider(
-            "Lookback Window", min_value=20, max_value=200, value=60
+        selected_presets = st.multiselect(
+            "Select from Preset Tickers",
+            options=list(preset_tickers.keys()),
+            default=list(preset_tickers.keys())[:1],
+            format_func=lambda x: preset_tickers.get(x, x),
+            help="Choose from a diversified set of high-quality U.S. stocks.",
         )
+    with col2:
+        custom_tickers = st.text_input(
+            "Add Custom Tickers (comma-separated)",
+            help="Manually enter tickers not in the preset list (e.g., BABA, CRM, IBM)",
+        )
+
+    # Merge and clean input
+    custom_list = [t.strip().upper() for t in custom_tickers.split(",") if t.strip()]
+    tickers = sorted(set(selected_presets + custom_list))
+
+    if tickers:
+        st.write(f"Final Ticker List: {', '.join(tickers)}")
+
+
+with st.container():
+    st.subheader("Strategy Parameter Selection")
+    selected_strategy = st.selectbox(
+        "Select Strategy",
+        options=list(STRATEGY_REGISTRY.keys()),
+    )
+    st.info(STRATEGY_REGISTRY[selected_strategy]["help"])
+
+    if not tickers:
+        st.warning("Please select at least one ticker before running the strategy.")
+        st.stop()
+    strategy_config = STRATEGY_REGISTRY[selected_strategy]
+    strategy_kwargs = strategy_config["ui_func"]()
 
 with st.container():
     st.subheader("Backtester Parameters")
@@ -142,9 +160,12 @@ run_btn = st.button("Run Strategy")
 # --- 2. Run the Strategy ---
 if run_btn:
     with st.spinner("Running backtest..."):
+        strategy_class = strategy_config["class"]
+        strategy_instance = strategy_class(symbols=tickers, **strategy_kwargs)
         config = OrchestratorConfig(
+            start_date=start_date,
             job=StrategyJob(
-                job_name=strategy_name, current_date=start_date, tickers=tickers
+                job_name="Custom", current_date=start_date, tickers=tickers
             ),
             market_feed=HistoricalFeed(
                 data_inputs=DataInputs(
@@ -154,9 +175,7 @@ if run_btn:
                 ),
                 source="yahoo",
             ),
-            strategy=MomentumStrategyJob(
-                top_n=top_n
-            ),  # allow user to pick from strategies with different options for each
+            strategy=strategy_instance,
             backtester=SimpleBacktester(
                 initial_cash=initial_cash,
                 max_hold_days=max_hold_days,
@@ -169,15 +188,20 @@ if run_btn:
         orchestrator = Orchestrator(config=config)
         orchestrator.run()
 
-    st.success("Backtest complete!")
-
     # --- 3. Show Results ---
     selected_summary = orchestrator_config_to_df_simple(
         metrics=config.job.metrics
     ).iloc[0]
-    generate_layout(selected_summary=selected_summary)
+    print(selected_summary.index)
 
-    ts_df = metrics_to_dataframe(metrics=orchestrator.config.job.metrics)
-    generate_charts(ts_df=ts_df)
+    if not config.job.signals:
+        st.warning("No signals returned for configured strategy.")
+        st.stop()
+    else:
+        st.success("Backtest complete!")
+        generate_layout(selected_summary=selected_summary)
 
-    display_trade_table(trades=orchestrator.config.job.equity_curve)
+        ts_df = metrics_to_dataframe(metrics=orchestrator.config.job.metrics)
+        generate_charts(ts_df=ts_df, regime=False)
+
+        display_trade_table(trades=orchestrator.config.job.equity_curve)

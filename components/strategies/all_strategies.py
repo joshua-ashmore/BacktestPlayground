@@ -4,7 +4,7 @@ from typing import Annotated, Union
 
 from pydantic import Field
 
-from components.strategies.angular_momentum import AngleMomentumStrategy
+from components.strategies.gradient_momentum import GradientMomentumStrategy
 from components.strategies.fallback_strategy import FallbackStrategyJob
 from components.strategies.mean_reversion import PairsTradingStrategyJob
 from components.strategies.momentum_strategy import MomentumStrategyJob
@@ -15,7 +15,7 @@ Strategies = Annotated[
         MomentumStrategyJob,
         PairsTradingStrategyJob,
         VolatilityBreakoutStrategyJob,
-        AngleMomentumStrategy,
+        GradientMomentumStrategy,
         FallbackStrategyJob,
     ],
     Field(..., discriminator="strategy_name"),

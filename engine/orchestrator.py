@@ -141,8 +141,7 @@ class Orchestrator(BaseModel):
 
     def _load_data(self, job: StrategyJob):
         """Load data."""
-        job.tickers = self.config.all_tickers
-        self.config.market_feed.fetch_data(symbols=job.tickers)
+        self.config.market_feed.fetch_data(symbols=self.config.all_tickers)
         job.market_snapshot = self.config.market_feed.market_snapshot
 
     def _detect_regime(
