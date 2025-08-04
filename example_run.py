@@ -8,7 +8,7 @@ from components.job.base_model import StrategyJob
 from components.metrics.base_model import MetricsEngine
 from components.regime.multi_hmm_engine import MultiHMMEngine
 from components.reporter.base_model import PDFReporter
-from components.strategies.angular_momentum import AngleMomentumStrategy
+from components.strategies.gradient_momentum import GradientMomentumStrategy
 from components.strategies.mean_reversion import PairsTradingStrategyJob
 from components.strategies.volatility_breakout import VolatilityBreakoutStrategyJob
 from engine.orchestrator import Orchestrator, OrchestratorConfig
@@ -58,11 +58,10 @@ mean_reverting_strategy = PairsTradingStrategyJob(
         "AEP",
     ]
 )
-# mean_reverting_strategy = FallbackStrategyJob()
 volatility_strategy = VolatilityBreakoutStrategyJob(
     symbols=["BTC-USD", "ETH-USD", "SOL-USD", "AVAX-USD", "DOGE-USD"]
 )
-trending_strategy = AngleMomentumStrategy(
+trending_strategy = GradientMomentumStrategy(
     max_holding_days=10,
     symbols=[
         "NVDA",
@@ -102,7 +101,7 @@ orchestrator_config = OrchestratorConfig(
     ),
     reporter=PDFReporter(output_dir="reports"),
     job=StrategyJob(
-        job_name="Regime Detection 3Y Multi HMM (All Regimes)",
+        job_name="Regime Detection 3Y Multi HMM (Two Regimes)",
         current_date=last_date,
     ),
     start_date=date(2025, 1, 1),
