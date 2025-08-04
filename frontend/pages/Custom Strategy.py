@@ -10,8 +10,8 @@ from components.job.base_model import StrategyJob
 from components.metrics.base_model import MetricsEngine
 from engine.orchestrator import Orchestrator, OrchestratorConfig
 from frontend.db_utils import metrics_to_dataframe, orchestrator_config_to_df_simple
-from frontend.strategy_util import STRATEGY_REGISTRY
 from frontend.st_utils import display_trade_table, generate_charts, generate_layout
+from frontend.strategy_util import STRATEGY_REGISTRY
 
 st.title("Run Custom Strategy")
 

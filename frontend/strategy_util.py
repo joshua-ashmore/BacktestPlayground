@@ -1,6 +1,7 @@
 """Strategy Choice Util."""
 
 import streamlit as st
+
 from components.strategies.gradient_momentum import GradientMomentumStrategy
 from components.strategies.mean_reversion import PairsTradingStrategyJob
 from components.strategies.momentum_strategy import MomentumStrategyJob
