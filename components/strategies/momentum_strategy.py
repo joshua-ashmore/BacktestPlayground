@@ -24,10 +24,16 @@ class MomentumStrategyJob(Strategy):
     min_atr_window: int = 14
     # decay_limit: int = 3  # Max number of recent signals allowed for same symbol
 
+    def get_required_lookback_days(self) -> int:
+        """The longest historical window we need for calculations."""
+        return max(self.base_window, self.ma_window, self.min_atr_window)
+
     def compute_atr(self, prices: pd.Series, window: int = 14) -> float:
+        """Compute ATR."""
         return prices.diff().abs().rolling(window).mean().iloc[-1]
 
     def compute_risk_adjusted_momentum(self, prices: pd.Series, window: int) -> float:
+        """Compute risk adjusted momentum."""
         returns = np.log(prices).diff().dropna()
         if len(returns) < window:
             return np.nan
@@ -40,6 +46,7 @@ class MomentumStrategyJob(Strategy):
     def generate_signal_on_date(
         self, job: StrategyJob, target_date: date, previous_date: date
     ) -> List[TradeIntent]:
+        """Generate signal on date."""
         trade_intents: list[TradeIntent] = []
         scored_assets: list[Dict] = []
 

@@ -11,86 +11,6 @@ from components.strategies.base_model import Strategy
 from components.trades.intent_model import TradeIntent, TradeIntentLeg
 from components.trades.trade_model import Trade
 
-# class VolatilityBreakoutStrategyJob(Strategy):
-#     """Volatility Breakout Strategy Job."""
-
-#     strategy_name: Literal["volatility breakout"] = "volatility breakout"
-#     atr_window: int = 14
-#     breakout_threshold: float = 1.5
-
-#     def generate_signal_on_date(
-#         self, job: StrategyJob, target_date: date, previous_date: date
-#     ) -> List[TradeIntent]:
-#         """Generate signal on date."""
-#         trade_intents: List[TradeIntent] = []
-#         volatility_scores: List = []
-#         for symbol in [
-#             ticker
-#             for ticker in job.tickers
-#             if ticker in job.market_snapshot.data.keys()
-#         ]:
-#             atr = self.atr(symbol=symbol, job=job, target_date=previous_date)
-#             prices = job.market_snapshot.get(
-#                 symbol=symbol, variable="close", max_date=target_date
-#             )
-#             price = prices[-1]
-#             prev_close = prices[-2]
-#             if price > prev_close + self.breakout_threshold * atr.iloc[-1]:
-#                 signal = "buy"
-#             elif price < prev_close - self.breakout_threshold * atr.iloc[-1]:
-#                 signal = "sell"
-#             else:
-#                 continue
-#             volatility_scores.append(
-#                 {
-#                     "symbol": symbol,
-#                     "signal": signal,
-#                     "date": target_date,
-#                     "strategy": self.strategy_name,
-#                 }
-#             )
-#         for score in volatility_scores:
-#             trade_intents.append(
-#                 TradeIntent(
-#                     weight=1 / len(volatility_scores),
-#                     **score,
-#                 )
-#             )
-#         return trade_intents
-
-#     def atr(self, symbol: str, job: StrategyJob, target_date: date) -> pd.Series:
-#         """
-#         Calculate the Average True Range (ATR).
-
-#         Parameters:
-#             high (pd.Series): High prices
-#             low (pd.Series): Low prices
-#             close (pd.Series): Close prices
-#             window (int): Rolling window size
-
-#         Returns:
-#             pd.Series: ATR values
-#         """
-#         high: pd.Series = pd.Series(
-#             job.market_snapshot.get(
-#                 symbol=symbol, variable="high", max_date=target_date
-#             )
-#         )
-#         low: pd.Series = pd.Series(
-#             job.market_snapshot.get(symbol=symbol, variable="low", max_date=target_date)
-#         )
-#         close: pd.Series = pd.Series(
-#             job.market_snapshot.get(
-#                 symbol=symbol, variable="close", max_date=target_date
-#             )
-#         )
-#         high_low = high - low
-#         high_close = (high - close.shift()).abs()
-#         low_close = (low - close.shift()).abs()
-#         true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-#         atr_values = true_range.rolling(window=self.atr_window).mean()
-#         return atr_values
-
 
 class VolatilityBreakoutStrategyJob(Strategy):
     """Enhanced Volatility Breakout Strategy Job."""
@@ -99,6 +19,10 @@ class VolatilityBreakoutStrategyJob(Strategy):
     atr_window: int = 14
     breakout_threshold: float = 1.5
     ma_window: int = 20
+
+    def get_required_lookback_days(self) -> int:
+        """The longest historical window we need for calculations."""
+        return max(self.atr_window, self.ma_window)
 
     def generate_signal_on_date(
         self, job: StrategyJob, target_date: date, previous_date: date
