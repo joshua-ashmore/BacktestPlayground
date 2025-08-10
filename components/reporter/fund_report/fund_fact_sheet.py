@@ -3,8 +3,8 @@
 from datetime import datetime
 from functools import reduce
 
-from numpy import average
 import pandas as pd
+from numpy import average
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet

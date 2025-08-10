@@ -7,7 +7,7 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression  # noqa: F401
 
 from components.job.base_model import StrategyJob
 from components.strategies.base_model import Strategy
