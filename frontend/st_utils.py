@@ -35,13 +35,15 @@ def generate_config(config: OrchestratorConfig):
 
     # --- Column 2: Backtester Settings ---
     with col2.expander("Backtester Settings"):
-        st.write(f"**Initial Cash**: ${config.backtester.initial_cash:,}")
-        st.write(f"**Max Hold Days**: {config.backtester.max_hold_days}")
+        st.write(f"**Initial Cash**: ${config.execution_engine.initial_cash:,}")
+        st.write(f"**Max Hold Days**: {config.execution_engine.max_hold_days}")
         st.write(
-            f"**Allocation per Trade**: {config.backtester.allocation_pct_per_trade * 100:.1f}%"
+            f"**Allocation per Trade**: {config.execution_engine.allocation_pct_per_trade * 100:.1f}%"
         )
-        st.write(f"**Stop Loss**: {config.backtester.stop_loss_pct * 100:.1f}%")
-        st.write(f"**Take Profit**: {config.backtester.take_profit_pct * 100:.1f}%")
+        st.write(f"**Stop Loss**: {config.execution_engine.stop_loss_pct * 100:.1f}%")
+        st.write(
+            f"**Take Profit**: {config.execution_engine.take_profit_pct * 100:.1f}%"
+        )
 
     # --- Column 3: Market Feed ---
     with col3.expander("Market Feed"):
@@ -75,28 +77,94 @@ def generate_layout(selected_summary):
 def generate_charts(ts_df: pd.DataFrame, regime: bool = True):
     """Generate Charts."""
 
+    # if ts_df.empty:
+    #     st.warning("No time series data found for this run.")
+    # else:
+    #     st.subheader("Equity Curve")
+
+    #     print(ts_df)
+    #     ts_df["regime"] = ts_df["regime_timeseries"]
+    #     ts_df["prev_regime"] = ts_df["regime"].shift(1)
+    #     ts_df["segment"] = (ts_df["regime"] != ts_df["prev_regime"]).cumsum()
+
+    #     regime_ranges = (
+    #         ts_df.groupby(["segment", "regime"])
+    #         .agg(start_date=("date", "min"), end_date=("date", "max"))
+    #         .reset_index()
+    #     )
+    #     color_scale = alt.Scale(
+    #         domain=["trending", "volatile", "mean_reverting"],
+    #         range=["#1f77b4", "#ff7f0e", "#2ca02c"],  # vibrant blue, orange, green
+    #     )
+
+    #     regime_chart = (
+    #         alt.Chart(regime_ranges)
+    #         .mark_rect(opacity=0.7)
+    #         .encode(
+    #             x="start_date:T",
+    #             x2="end_date:T",
+    #             color=alt.Color(
+    #                 "regime:N", scale=color_scale, legend=alt.Legend(title="Regime")
+    #             ),
+    #         )
+    #     )
+
+    #     min_equity = ts_df["equity_curve"].min()
+    #     line_chart = (
+    #         alt.Chart(ts_df)
+    #         .mark_line()
+    #         .encode(
+    #             x=alt.X(
+    #                 "date:T",
+    #                 title="Date",
+    #                 axis=alt.Axis(format="%b %Y", labelAngle=-45),
+    #             ),
+    #             y=alt.Y(
+    #                 "equity_curve:Q",
+    #                 title="Equity Curve Value",
+    #                 scale=alt.Scale(domainMin=min_equity),
+    #             ),
+    #             tooltip=["date:T", "equity_curve:Q"],
+    #         )
+    #         .properties(height=300, width="container")
+    #     )
+    #     if regime:
+    #         combined_chart = (
+    #             alt.layer(regime_chart, line_chart)
+    #             .resolve_scale(color="independent")
+    #             .interactive()
+    #         )
+    #     else:
+    #         combined_chart = line_chart
+
+    #     st.altair_chart(combined_chart, use_container_width=True)
+
     if ts_df.empty:
         st.warning("No time series data found for this run.")
-    else:
-        st.subheader("Equity Curve")
+        return
 
+    st.subheader("Equity Curve")
+
+    if regime:
+        print(ts_df["regime_timeseries"])
         ts_df["regime"] = ts_df["regime_timeseries"]
-        ts_df["prev_regime"] = ts_df["regime"].shift(1)
-        ts_df["segment"] = (ts_df["regime"] != ts_df["prev_regime"]).cumsum()
+        ts_df["segment"] = (ts_df["regime"] != ts_df["regime"].shift(1)).cumsum()
 
+        # Build regime rectangles
         regime_ranges = (
             ts_df.groupby(["segment", "regime"])
             .agg(start_date=("date", "min"), end_date=("date", "max"))
             .reset_index()
         )
+
         color_scale = alt.Scale(
             domain=["trending", "volatile", "mean_reverting"],
-            range=["#1f77b4", "#ff7f0e", "#2ca02c"],  # vibrant blue, orange, green
+            range=["#1f77b4", "#ff7f0e", "#2ca02c"],
         )
 
         regime_chart = (
             alt.Chart(regime_ranges)
-            .mark_rect(opacity=0.7)
+            .mark_rect(opacity=0.15)  # lighter so line is visible
             .encode(
                 x="start_date:T",
                 x2="end_date:T",
@@ -105,88 +173,194 @@ def generate_charts(ts_df: pd.DataFrame, regime: bool = True):
                 ),
             )
         )
+        # ts_df["regime"] = ts_df["regime_timeseries"]
+        # ts_df["prev_regime"] = ts_df["regime"].shift(1)
+        # ts_df["segment"] = (ts_df["regime"] != ts_df["prev_regime"]).cumsum()
 
-        min_equity = ts_df["equity_curve"].min()
-        line_chart = (
-            alt.Chart(ts_df)
-            .mark_line()
-            .encode(
-                x=alt.X(
-                    "date:T",
-                    title="Date",
-                    axis=alt.Axis(format="%b %Y", labelAngle=-45),
-                ),
-                y=alt.Y(
-                    "equity_curve:Q",
-                    title="Equity Curve Value",
-                    scale=alt.Scale(domainMin=min_equity),
-                ),
-                tooltip=["date:T", "equity_curve:Q"],
-            )
-            .properties(height=300, width="container")
+        # regime_ranges = (
+        #     ts_df.groupby(["segment", "regime"])
+        #     .agg(start_date=("date", "min"), end_date=("date", "max"))
+        #     .reset_index()
+        # )
+
+        # color_scale = alt.Scale(
+        #     domain=["trending", "volatile", "mean_reverting"],
+        #     range=["#1f77b4", "#ff7f0e", "#2ca02c"],  # blue, orange, green
+        # )
+
+        # regime_chart = (
+        #     alt.Chart(regime_ranges)
+        #     .mark_rect(opacity=0.3)
+        #     .encode(
+        #         x=alt.X("start_date:T", title="Date"),
+        #         x2="end_date:T",
+        #         color=alt.Color(
+        #             "regime:N", scale=color_scale, legend=alt.Legend(title="Regime")
+        #         ),
+        #     )
+        # )
+    else:
+        regime_chart = None
+
+    min_equity = ts_df["equity_curve"].min()
+
+    line_chart = (
+        alt.Chart(ts_df)
+        .mark_line()
+        .encode(
+            x=alt.X(
+                "date:T", title="Date", axis=alt.Axis(format="%b %Y", labelAngle=-45)
+            ),
+            y=alt.Y(
+                "equity_curve:Q",
+                title="Equity Curve Value",
+                scale=alt.Scale(domainMin=min_equity),
+            ),
+            tooltip=["date:T", "equity_curve:Q"],
         )
-        if regime:
-            combined_chart = (
-                alt.layer(regime_chart, line_chart)
-                .resolve_scale(color="independent")
-                .interactive()
-            )
-        else:
-            combined_chart = line_chart
+        .properties(height=300, width="container")
+    )
 
-        st.altair_chart(combined_chart, use_container_width=True)
+    if regime_chart is not None:
+        combined_chart = (
+            alt.layer(regime_chart, line_chart)
+            .resolve_scale(color="independent")
+            .interactive()
+        )
+    else:
+        combined_chart = line_chart.interactive()
 
-        st.subheader("Rolling Sharpe Ratio")
-        sharpe_chart = (
-            alt.Chart(ts_df)
-            .mark_line(color="orange")
-            .encode(
-                x=alt.X(
-                    "date:T",
-                    title="Date",
-                    axis=alt.Axis(
-                        format="%b %Y",
-                        labelAngle=-45,
-                    ),
+    st.altair_chart(combined_chart, use_container_width=True)
+
+    # TODO: implement this but with scaling items from above
+    # # --- Step 1: Create smoothed segments ---
+    # ts_df = ts_df.copy()
+    # ts_df["prev_regime"] = ts_df["regime_timeseries"].shift()
+    # ts_df["segment"] = (ts_df["regime_timeseries"] != ts_df["prev_regime"]).cumsum()
+
+    # # Group start/end for each segment
+    # regime_ranges = (
+    #     ts_df.groupby("segment")
+    #     .agg(
+    #         start_date=("date", "first"),
+    #         end_date=("date", "last"),
+    #         regime=("regime_timeseries", "first"),
+    #     )
+    #     .reset_index(drop=True)
+    # )
+
+    # # --- Step 2: Merge short-lived segments ---
+    # min_days = 3
+    # merged_ranges = []
+    # prev_range = None
+
+    # for _, row in regime_ranges.iterrows():
+    #     duration = (row["end_date"] - row["start_date"]).days + 1
+    #     if duration < min_days and prev_range is not None:
+    #         # Merge with previous
+    #         prev_range["end_date"] = row["end_date"]
+    #     else:
+    #         if prev_range:
+    #             merged_ranges.append(prev_range)
+    #         prev_range = row.to_dict()
+
+    # if prev_range:
+    #     merged_ranges.append(prev_range)
+
+    # regime_ranges = pd.DataFrame(merged_ranges)
+
+    # # --- Step 3: Build equity chart ---
+    # min_equity = ts_df["equity_curve"].min()
+
+    # equity_chart = (
+    #     alt.Chart(ts_df)
+    #     .mark_line()
+    #     .encode(
+    #         x=alt.X(
+    #             "date:T", title="Date", axis=alt.Axis(format="%b %Y", labelAngle=-45)
+    #         ),
+    #         y=alt.Y(
+    #             "equity_curve:Q",
+    #             title="Equity Curve Value",
+    #             scale=alt.Scale(domainMin=min_equity),
+    #         ),
+    #         tooltip=["date:T", "equity_curve:Q"],
+    #     )
+    #     .properties(height=300, width="container")
+    # )
+
+    # # --- Step 4: Build regime background ---
+    # if regime:
+    #     regime_chart = (
+    #         alt.Chart(regime_ranges)
+    #         .mark_rect(opacity=0.45)
+    #         .encode(
+    #             x="start_date:T",
+    #             x2="end_date:T",
+    #             color=alt.Color(
+    #                 "regime:N",
+    #                 scale=alt.Scale(scheme="category10"),
+    #                 legend=alt.Legend(title="Regime"),
+    #             ),
+    #         )
+    #     )
+    #     chart = alt.layer(regime_chart, equity_chart)
+    # else:
+    #     chart = equity_chart
+
+    # st.altair_chart(chart, use_container_width=True)
+
+    st.subheader("Rolling Sharpe Ratio")
+    sharpe_chart = (
+        alt.Chart(ts_df)
+        .mark_line(color="orange")
+        .encode(
+            x=alt.X(
+                "date:T",
+                title="Date",
+                axis=alt.Axis(
+                    format="%b %Y",
+                    labelAngle=-45,
                 ),
-                y=alt.Y("rolling_sharpe:Q", title="Sharpe"),
-                tooltip=["date:T", "rolling_sharpe:Q"],
-            )
-            .properties(height=300, width="container")
+            ),
+            y=alt.Y("rolling_sharpe:Q", title="Sharpe"),
+            tooltip=["date:T", "rolling_sharpe:Q"],
         )
-        st.altair_chart(sharpe_chart, use_container_width=True)
+        .properties(height=300, width="container")
+    )
+    st.altair_chart(sharpe_chart, use_container_width=True)
 
-        st.subheader("Rolling Drawdown")
-        drawdown_chart = (
-            alt.Chart(ts_df)
-            .mark_area(color="red", opacity=0.4)
-            .encode(
-                x=alt.X(
-                    "date:T",
-                    title="Date",
-                    axis=alt.Axis(
-                        format="%b %Y",
-                        labelAngle=-45,
-                    ),
+    st.subheader("Rolling Drawdown")
+    drawdown_chart = (
+        alt.Chart(ts_df)
+        .mark_area(color="red", opacity=0.4)
+        .encode(
+            x=alt.X(
+                "date:T",
+                title="Date",
+                axis=alt.Axis(
+                    format="%b %Y",
+                    labelAngle=-45,
                 ),
-                y=alt.Y("rolling_drawdown:Q", title="Drawdown"),
-                tooltip=["date:T", "rolling_drawdown:Q"],
-            )
-            .properties(height=300, width="container")
+            ),
+            y=alt.Y("rolling_drawdown:Q", title="Drawdown"),
+            tooltip=["date:T", "rolling_drawdown:Q"],
         )
-        st.altair_chart(drawdown_chart, use_container_width=True)
+        .properties(height=300, width="container")
+    )
+    st.altair_chart(drawdown_chart, use_container_width=True)
 
-        st.subheader("Histogram of Daily Returns")
-        hist = (
-            alt.Chart(ts_df)
-            .mark_bar()
-            .encode(
-                alt.X("daily_return:Q", bin=alt.Bin(maxbins=50), title="Daily Return"),
-                y="count()",
-            )
-            .properties(height=300, width="container")
+    st.subheader("Histogram of Daily Returns")
+    hist = (
+        alt.Chart(ts_df)
+        .mark_bar()
+        .encode(
+            alt.X("daily_return:Q", bin=alt.Bin(maxbins=50), title="Daily Return"),
+            y="count()",
         )
-        st.altair_chart(hist, use_container_width=True)
+        .properties(height=300, width="container")
+    )
+    st.altair_chart(hist, use_container_width=True)
 
 
 def display_trade_table(trades: List[Trade]):

@@ -22,6 +22,8 @@ st.set_page_config(layout="wide", page_title="Portfolio Dashboard")
 st.title("Portfolio Performance Dashboard")
 
 summary_df = get_summary_df()
+summary_df = summary_df.sort_values(by="annualized_return", ascending=False)
+# summary_df = summary_df.sort_values(by="")
 
 if summary_df.empty:
     st.warning("No portfolio data found in the database.")
@@ -45,7 +47,6 @@ selected_summary_id = st.selectbox(
 # Get selected row
 selected_summary = summary_df[summary_df["id"] == selected_summary_id].iloc[0]
 strategy_config = load_latest_strategy_config(selected_summary["strategy_name"])
-print(strategy_config)
 
 config = OrchestratorConfig(**strategy_config)
 generate_config(config=config)
@@ -61,7 +62,7 @@ generate_multi_strat_table(selected_summary_id)
 st.markdown("---")
 
 ts_df = get_timeseries_df(selected_summary_id)
-generate_charts(ts_df)
+generate_charts(ts_df=ts_df, regime=True if config.regime_engine else False)
 
 if st.checkbox("Show Raw Summary Data"):
     st.dataframe(summary_df)
