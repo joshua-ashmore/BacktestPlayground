@@ -5,8 +5,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from backtester.market_data.market import MarketSnapshot
-from components.backtester.base_model import PortfolioSnapshot
+from components import PortfolioSnapshot
+from components.market.market import MarketSnapshot
 from components.metrics.base_model import PortfolioMetrics
 from components.trades.intent_model import TradeIntent
 from components.trades.trade_model import Trade
