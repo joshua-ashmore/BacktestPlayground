@@ -3,22 +3,18 @@
 from datetime import date
 from typing import Callable, List, Optional
 
-import pandas as pd
+from pandas.tseries.holiday import USFederalHolidayCalendar
+from pandas.tseries.offsets import CustomBusinessDay
 from pydantic import BaseModel, model_validator
 
-from backtester.market_data.market_data_feed import MarketFeed
-from backtester.market_data.sqlite_market_data_cache import SQLiteMetricsStore
-from components.backtester.all_backtesters import Backtesters
+from components.execution.all_engines import ExecutionEngines
 from components.job.base_model import StrategyJob
+from components.market.market_data_feed import MarketFeed
+from components.market.sqlite_market_data_cache import SQLiteMetricsStore
 from components.metrics.base_model import MetricsEngine, PortfolioMetrics
 from components.regime.regime_engines import RegimeEngines
 from components.reporter.base_model import PDFReporter
 from components.strategies.all_strategies import Strategies
-
-
-class DBInterface(BaseModel):
-    def save(self, table: str, data: pd.DataFrame, job: "StrategyJob") -> None:
-        raise NotImplementedError
 
 
 class Hook(BaseModel):
@@ -32,35 +28,58 @@ class Hook(BaseModel):
 class OrchestratorConfig(BaseModel):
     """Orchestrator Config."""
 
+    start_date: date
     job: StrategyJob
     market_feed: MarketFeed
-    backtester: Backtesters
+    execution_engine: ExecutionEngines
     metrics_engine: MetricsEngine
     strategy: Optional[Strategies] = None
     regime_engine: Optional[RegimeEngines] = None
     reporter: Optional[PDFReporter] = None
-    all_tickers: List[str] = None
     hooks: List[Hook] = []
 
-    start_date: Optional[date] = None
+    _all_tickers: List[str] = None
 
     @model_validator(mode="after")
     def post_validate_model(self):
         """Post validate model."""
         if not self.strategy and not self.regime_engine:
             raise ValueError("One of strategy or regime engine must be provided.")
-        if not self.all_tickers:
+        if not self._all_tickers:
             if self.strategy:
-                self.all_tickers = self.strategy.symbols
+                self._all_tickers = self.strategy.symbols
             else:
-                self.all_tickers = [
+                self._all_tickers = [
                     symbol
                     for strategy in self.regime_engine.strategy_map.values()
                     for symbol in strategy.symbols
                 ]
-        if not self.start_date:
-            self.start_date = min(self.market_feed.dates)
+        if not self.job.tickers and not self.regime_engine:
+            self.job.tickers = self.strategy.symbols
+
+        self.set_market_data_feed_start_date()
         return self
+
+    def set_market_data_feed_start_date(self):
+        """Set market_data_feed input start date from strategy configuration."""
+        strategies = (
+            [self.strategy]
+            if not self.regime_engine
+            else self.regime_engine.strategy_map.values()
+        )
+        regime_lookback_days = (
+            getattr(self.regime_engine, "num_of_training_dates", 0)
+            if self.regime_engine
+            else 0
+        )
+        strategy_lookback_days = max(
+            strategy.get_required_lookback_days() for strategy in strategies
+        )
+        max_lookback_days = max(regime_lookback_days, strategy_lookback_days)
+        # TODO: allow user configuration for calendars
+        business_day = CustomBusinessDay(calendar=USFederalHolidayCalendar())
+        earliest_date = self.start_date - business_day * max_lookback_days
+        self.market_feed.data_inputs.start_date = earliest_date
 
 
 class Orchestrator(BaseModel):
@@ -134,15 +153,16 @@ class Orchestrator(BaseModel):
     def _pre_save(self, job: StrategyJob):
         """Pre-save data."""
         metrics_store = SQLiteMetricsStore()
-        if self.config:
+        if self.config and self.config.metrics_engine.save_metrics:
             metrics_store.save_strategy_config(
                 strategy_name=job.job_name, config=self.config
             )
 
     def _load_data(self, job: StrategyJob):
         """Load data."""
-        self.config.market_feed.fetch_data(symbols=self.config.all_tickers)
-        job.market_snapshot = self.config.market_feed.market_snapshot
+        if not job.market_snapshot:
+            self.config.market_feed.fetch_data(symbols=self.config._all_tickers)
+            job.market_snapshot = self.config.market_feed.market_snapshot
 
     def _detect_regime(
         self,
@@ -171,7 +191,7 @@ class Orchestrator(BaseModel):
     def _execute_trades(self, job: StrategyJob, target_date: date, previous_date: date):
         """Run trade execution."""
         job.equity_curve.extend(
-            self.config.backtester.simulate_trade_execution_on_date(
+            self.config.execution_engine.simulate_trade_execution_on_date(
                 job=job,
                 target_date=target_date,
                 previous_date=previous_date,
@@ -182,7 +202,7 @@ class Orchestrator(BaseModel):
     def _run_backtest(self, job: StrategyJob, target_date: date):
         """Run backtest."""
         job.portfolio_snapshots.append(
-            self.config.backtester.run_on_date(job=job, target_date=target_date)
+            self.config.execution_engine.run_on_date(job=job, target_date=target_date)
         )
 
     def _compute_metrics(self, job: StrategyJob):
@@ -211,4 +231,5 @@ class Orchestrator(BaseModel):
                 market_snapshot=self.config.market_feed.market_snapshot,
                 metrics=job.metrics,
                 min_date=self.config.start_date,
+                benchmark_symbol=self.config.market_feed.data_inputs.benchmark_symbol,
             )
