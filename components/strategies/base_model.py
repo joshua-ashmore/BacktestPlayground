@@ -5,8 +5,8 @@ from typing import List
 
 from pydantic import BaseModel
 
-from backtester.market_data.market import MarketSnapshot
 from components.job.base_model import StrategyJob
+from components.market.market import MarketSnapshot
 from components.trades.intent_model import TradeIntent
 from components.trades.trade_model import Trade
 
@@ -65,3 +65,7 @@ class Strategy(BaseModel):
     ) -> bool:
         """Generate exit signals."""
         return False
+
+    def get_required_lookback_days(self) -> int:
+        """The longest historical window we need for calculations."""
+        raise NotImplementedError("Not implemented required lookback days.")

@@ -844,6 +844,17 @@ docs = ["matplotlib", "pydata-sphinx-theme", "sphinx (>=2.0)", "sphinx-gallery"]
 tests = ["pytest"]
 
 [[package]]
+name = "ibapi"
+version = "9.81.1.post1"
+description = "Official Interactive Brokers API"
+optional = false
+python-versions = ">=3.1"
+groups = ["main"]
+files = [
+    {file = "ibapi-9.81.1.post1.tar.gz", hash = "sha256:49f6678bf4cced996920f32ad4b48e6897749ac30ba14a661082285f4ec09cd6"},
+]
+
+[[package]]
 name = "identify"
 version = "2.6.12"
 description = "File identification library for Python"
@@ -3189,4 +3200,4 @@ repair = ["scipy (>=1.6.3)"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "71a1a16e6fc714af232f94feb5821b573587598a83451f14d75f103e9b3ce55c"
+content-hash = "4222bba7ae3212c5a3afa29b64c64ea34076bb7549cd20b43e17551b4f7ab8c3"

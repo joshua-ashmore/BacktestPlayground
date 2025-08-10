@@ -19,6 +19,7 @@ reportlab = "^4.4.3"
 altair = "^5.5.0"
 streamlit = "^1.47.1"
 hmmlearn = "^0.3.3"
+ibapi = "^9.81.1.post1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"

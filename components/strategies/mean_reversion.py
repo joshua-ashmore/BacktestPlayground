@@ -25,6 +25,10 @@ class PairsTradingStrategyJob(Strategy):
     min_coint_pval: float = 0.01
     min_adf_pval: float = 0.01
 
+    def get_required_lookback_days(self) -> int:
+        """The longest historical window we need for calculations."""
+        return self.window
+
     def generate_signal_on_date(
         self, job: StrategyJob, target_date: date, previous_date: date
     ) -> List[TradeIntent]:

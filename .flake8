@@ -1,6 +1,6 @@
 [flake8]
 max-line-length=125
-ignore = E203, W503, E231, E221, E222
+ignore = E203, W503, E231, E221, E222, E225
 max-cognitive-complexity=15
 docstring-convention=google
 pytest-parametrize-names-tyoe = csv

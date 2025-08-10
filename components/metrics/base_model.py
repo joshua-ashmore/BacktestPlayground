@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 from pydantic import BaseModel
 
-from backtester.market_data.market import MarketSnapshot
-from components.backtester.base_model import PortfolioSnapshot
+from components import PortfolioSnapshot
+from components.market.market import MarketSnapshot
 
 if TYPE_CHECKING:
     from components.regime.regime_engines import RegimeEngines

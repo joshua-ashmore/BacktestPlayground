@@ -14,6 +14,10 @@ class FallbackStrategyJob(Strategy):
     strategy_name: Literal["fallback"] = "fallback"
     symbols: List[str] = []
 
+    def get_required_lookback_days(self) -> int:
+        """The longest historical window we need for calculations."""
+        return 1
+
     def generate_signal_on_date(
         self, job: StrategyJob, target_date: date, previous_date: date
     ) -> List[TradeIntent]:

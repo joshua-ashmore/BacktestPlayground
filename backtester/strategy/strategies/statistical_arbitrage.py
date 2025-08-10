@@ -12,9 +12,9 @@ from scipy.stats import pearsonr
 from statsmodels.regression.linear_model import OLS
 from statsmodels.tsa.stattools import adfuller
 
-from backtester.market_data.market import MarketSnapshot
-from backtester.static_data import Directions, Symbol
 from backtester.strategy.strategy import AbstractStrategyConfig
+from components.market import Directions, Symbol
+from components.market.market import MarketSnapshot
 
 
 class StatisticalArbitrageParameter(BaseModel):

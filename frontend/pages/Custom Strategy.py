@@ -4,9 +4,9 @@ from datetime import date, timedelta
 
 import streamlit as st
 
-from backtester.market_data.market_data_feed import DataInputs, HistoricalFeed
-from components.backtester.simple_backtester import SimpleBacktester
+from components.execution.simple_engine import SimpleExecutionEngine
 from components.job.base_model import StrategyJob
+from components.market.market_data_feed import DataInputs, HistoricalFeed
 from components.metrics.base_model import MetricsEngine
 from engine.orchestrator import Orchestrator, OrchestratorConfig
 from frontend.db_utils import metrics_to_dataframe, orchestrator_config_to_df_simple
@@ -170,13 +170,12 @@ if run_btn:
             market_feed=HistoricalFeed(
                 data_inputs=DataInputs(
                     benchmark_symbol=benchmark,
-                    start_date=start_date,
                     end_date=end_date + timedelta(days=1),
                 ),
                 source="yahoo",
             ),
             strategy=strategy_instance,
-            backtester=SimpleBacktester(
+            execution_engine=SimpleExecutionEngine(
                 initial_cash=initial_cash,
                 max_hold_days=max_hold_days,
                 allocation_pct_per_trade=allocation_pct_per_trade,
@@ -192,7 +191,6 @@ if run_btn:
     selected_summary = orchestrator_config_to_df_simple(
         metrics=config.job.metrics
     ).iloc[0]
-    print(selected_summary.index)
 
     if not config.job.signals:
         st.warning("No signals returned for configured strategy.")

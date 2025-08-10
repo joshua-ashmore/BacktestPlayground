@@ -17,6 +17,8 @@ class HMMRegimeEngine(AbstractRegimeEngine):
 
     engine_type: Literal["hmm"] = "hmm"
 
+    num_of_training_dates: int = 365
+
     def detect_regime_probabilities(
         self, job: StrategyJob, previous_date: date
     ) -> Dict[str, float]:
@@ -29,7 +31,8 @@ class HMMRegimeEngine(AbstractRegimeEngine):
                     job.market_snapshot.get(
                         symbol=symbol,
                         variable="close",
-                        min_date=previous_date + timedelta(days=-365),
+                        min_date=previous_date
+                        + timedelta(days=-self.num_of_training_dates),
                         max_date=previous_date,
                         with_timestamps=True,
                     ),

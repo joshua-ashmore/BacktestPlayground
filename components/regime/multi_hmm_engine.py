@@ -16,6 +16,7 @@ class MultiHMMEngine(AbstractRegimeEngine):
     """HMM Strategy Selector using separate HMMs per strategy group."""
 
     engine_type: Literal["multi_hmm"] = "multi_hmm"
+    num_of_training_dates: int = 3 * 365
 
     preferred_state_idx: Dict[str, int] = {
         "trending": 0,
@@ -43,7 +44,8 @@ class MultiHMMEngine(AbstractRegimeEngine):
                         job.market_snapshot.get(
                             symbol=symbol,
                             variable="close",
-                            min_date=previous_date + timedelta(days=-3 * 365),
+                            min_date=previous_date
+                            + timedelta(days=-self.num_of_training_dates),
                             max_date=previous_date,
                             with_timestamps=True,
                         ),
@@ -68,9 +70,21 @@ class MultiHMMEngine(AbstractRegimeEngine):
 
             # Step 4: HMM training
             model = GaussianHMM(
-                n_components=3, covariance_type="full", n_iter=1000, random_state=42
+                n_components=3,
+                covariance_type="full",
+                n_iter=1000,
+                random_state=42,
+                # startprob_prior=1.0,
+                # transmat_prior=1.0,
             )
             model.fit(pca_features)
+
+            # row_sums = model.transmat_.sum(axis=1)
+            # if any(row_sums == 0):
+            #     transmat = model.transmat_
+            #     transmat += 1e-6
+            #     transmat /= transmat.sum(axis=1, keepdims=True)
+            #     model.transmat_ = transmat
 
             # Step 5: Inference
             posteriors = model.predict_proba(pca_features)

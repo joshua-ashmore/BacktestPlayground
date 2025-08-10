@@ -26,8 +26,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from backtester.market_data.market import MarketSnapshot
 from components.job.base_model import StrategyJob
+from components.market.market import MarketSnapshot
 from components.metrics.base_model import PortfolioMetrics
 from components.trades.trade_model import Trade
 
@@ -45,6 +45,7 @@ class PDFReporter(BaseModel):
         market_snapshot: MarketSnapshot,
         metrics: PortfolioMetrics,
         min_date: date,
+        benchmark_symbol: str,
     ):
         """Report."""
         os.makedirs(self.output_dir, exist_ok=True)
@@ -199,7 +200,10 @@ class PDFReporter(BaseModel):
         elements.append(Image(buf, width=8 * inch, height=3.5 * inch))
 
         buf = self._benchmark_vs_portfolio_performance_figure(
-            market_snapshot=market_snapshot, metrics=metrics, min_date=min_date
+            market_snapshot=market_snapshot,
+            metrics=metrics,
+            min_date=min_date,
+            benchmark_symbol=benchmark_symbol,
         )
         elements.append(Image(buf, width=8 * inch, height=3.5 * inch))
 
@@ -264,7 +268,11 @@ class PDFReporter(BaseModel):
         return buf
 
     def _benchmark_vs_portfolio_performance_figure(
-        self, market_snapshot: MarketSnapshot, metrics: PortfolioMetrics, min_date: date
+        self,
+        market_snapshot: MarketSnapshot,
+        metrics: PortfolioMetrics,
+        min_date: date,
+        benchmark_symbol: str,
     ):
         equity_series = pd.Series(metrics.equity_curve)
         portfolio_returns = equity_series.pct_change().fillna(0)
@@ -273,7 +281,10 @@ class PDFReporter(BaseModel):
         # Get benchmark price series
         benchmark_series = pd.Series(
             market_snapshot.get(
-                symbol="^SPX", variable="close", min_date=min_date, with_timestamps=True
+                symbol=benchmark_symbol,
+                variable="close",
+                min_date=min_date,
+                with_timestamps=True,
             )
         )
         benchmark_returns = benchmark_series.pct_change().fillna(0)
@@ -316,7 +327,12 @@ class PDFReporter(BaseModel):
         # Create plot
         fig, ax = plt.subplots(figsize=(10, 4))
         ax.plot(portfolio_cum, label="Strategy", color="blue")
-        ax.plot(benchmark_cum, label="Benchmark (SPX)", color="gray", linestyle="--")
+        ax.plot(
+            benchmark_cum,
+            label=f"Benchmark ({benchmark_symbol})",
+            color="gray",
+            linestyle="--",
+        )
 
         if metrics.regime_timeseries:
             # Shade background for regimes
